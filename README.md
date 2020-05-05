@@ -25,4 +25,4 @@ If you use ReacTorch in a publication, we would appreciate if you cited ReacTorc
 
     Weiqi Ji, Sili Deng. ReacTorch: A Differentiable Reacting Flow Simulation Package in PyTorch, https://github.com/DENG-MIT/reactorch, 2020.
 
-ReacTorch is initially developed in [Deng Energy and Nanotechnology Group](https://deng.mit.edu) lead by Prof. Sili Deng at MIT.
+ReacTorch was initially developed in [Deng Energy and Nanotechnology Group](https://deng.mit.edu) lead by Prof. Sili Deng at MIT.
