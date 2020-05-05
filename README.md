@@ -3,7 +3,7 @@
 
 ## Introduction
 
-The capability of Auto-differentiation enable us to efficiently compute the derivative of the solutions to all of the species concentrations (Jacobian) as well model parameters (Sensitivity analysis) at almost no cost. It also natively support of GPU with PyTorch. In addition, the compatibility of differentiate the entire combustion model is the foundations of many latest hybrid physics-neural network algorithms. This package provides a easy-accessible platform for implementing those emerging hardware and software infrastructure from deep learning community.
+The capability of Auto-differentiation enable us to efficiently compute the derivative of the solutions to all of the species concentrations (Jacobian) as well model parameters (Sensitivity analysis) at almost no cost. It also natively support of GPU with PyTorch. In addition, the compatibility of differentiate the entire combustion model is the foundations of many latest hybrid physics-neural network algorithms. This package is aimed to provide an easy-accessible platform for implementing those emerging hardware and software infrastructure from deep learning community.
 
 ## Installation
 
