@@ -1,0 +1,4 @@
+torch==1.4.0
+ruamel-yaml==0.15.80
+ruamel.yaml.clib==0.2.0
+Cantera==2.5.0a3
