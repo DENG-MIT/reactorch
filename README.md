@@ -1,9 +1,6 @@
 ## ReacTorch: A Differentiable Reacting Flow Simulation Package in PyTorch
 
-
-## Introduction
-
-The capability of Auto-differentiation enable us to efficiently compute the derivative of the solutions to all of the species concentrations (Jacobian) as well model parameters (Sensitivity analysis) at almost no cost. It also natively support of GPU with PyTorch. In addition, the compatibility of differentiate the entire combustion model is the foundations of many latest hybrid physics-neural network algorithms. This package is aimed to provide an easy-accessible platform for implementing those emerging hardware and software infrastructure from deep learning community.
+ReacTorch is a package for simulating chemically reacting flows in PyTorch. The capability of auto-differentiation enables us to efficiently compute the derivatives of the solutions to all of the species concentrations (obtaining Jacobian matrix) as well as model parameters (performing sensitivity analysis) at almost no cost. It also natively supports GPU computation with PyTorch. In addition, the capability of differentiating the entire reacting model is the foundation of adopting many recent hybrid physics-neural network algorithms. This package is aimed at providing an easily accessible platform for implementing those emerging hardware and software infrastructures from the deep learning community in chemically reacting flow simulations.
 
 ## Installation
 
