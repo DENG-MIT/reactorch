@@ -8,13 +8,20 @@ ReacTorch is a package for simulating chemically reacting flows in PyTorch. The 
 python setup.py install
 ```
 
+## Requirements
+
+* PyTorch > 1.5.0 (before 1.5.0, pytorch don't support jacobian)
+* cantera >2.5.0
+
+Some module might not work with older versions of pytorch and cantera. But you stil can have a try with older version to see if it is enough for you.
+
 ## Usage
 
 ```python
 import reactorch as rt
 ```
 
-sample code can be found in `test/Solution_test.py`
+sample code can be found in `test/Solution_test.py` and examples.
 
 ## Credit
 
