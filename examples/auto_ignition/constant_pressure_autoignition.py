@@ -74,6 +74,8 @@ class ReactorOdeRT(object):
         
         TPY = torch.Tensor(y)
         
+        TPY.requires_grad = True
+        
         jac_ = jacobian(self.TYdot_jac, TPY, create_graph=False)
         
         return jac_
@@ -128,7 +130,7 @@ states_rt = ct.SolutionArray(sol.gas, 1, extra={'t': [0.0]})
 t = 0
 ode_success = True
 y = y0
-
+dt = 1e-5
 
 while ode_success and t < t_end:
     odesol = solve_ivp(ode_rt,
@@ -140,6 +142,8 @@ while ode_success and t < t_end:
     t = odesol.t[-1]
     y = odesol.y[:, -1]
     ode_successful = odesol.success
+    
+    print('t {} T {}'.format(t, y[0]))
 
     sol.gas.TPY = odesol.y[0, -1], P, odesol.y[1:, -1]
     states_rt.append(sol.gas.state, t=t)
@@ -147,20 +151,22 @@ while ode_success and t < t_end:
 # Plot the results
 try:
     import matplotlib.pyplot as plt
-    L1 = plt.plot(states.t, states.T, ls='--', color='r', label='T', lw=1)
+    L1 = plt.plot(states.t, states.T, ls='--', color='r', label='T Cantera', lw=1)
     L1_rt = plt.plot(states_rt.t, states_rt.T, ls='-',
-                     color='r', label='T_rt', lw=2)
+                     color='r', label='T ReacTorch', lw=2)
     plt.xlabel('time (s)')
     plt.ylabel('Temperature (K)')
 
     plt.twinx()
-    L2 = plt.plot(states.t, states('OH').Y, ls='--', label='OH', lw=1)
+    L2 = plt.plot(states.t, states('OH').Y, ls='--', label='OH Cantera', lw=1)
     L2_rt = plt.plot(states_rt.t, states_rt(
-        'OH').Y, ls='-', label='OH_rt', lw=1)
+        'OH').Y, ls='-', label='OH ReacTorch', lw=1)
     plt.ylabel('Mass Fraction')
 
     plt.legend(L1+L2+L1_rt+L2_rt, [line.get_label()
                                    for line in L1+L2+L1_rt+L2_rt], loc='lower right')
+    
+    plt.savefig('cantera_reactorch_validation.png', dpi=300)
     plt.show()
 except ImportError:
     print('Matplotlib not found. Unable to plot results.')
