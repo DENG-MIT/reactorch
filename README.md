@@ -6,7 +6,8 @@ In case you are wondering what is the [relationshop between ReacTorch and Canter
 
 ## Installation
 
-```python
+```shell
+git clone git@github.com:DENG-MIT/reactorch.git
 python setup.py install
 ```
 
