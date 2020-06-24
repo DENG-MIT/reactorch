@@ -63,25 +63,28 @@ sol.set_states(TPY)
 t1_stop = perf_counter()
 print('sol set_states time spent {:.1e} [s]'.format(t1_stop - t0_start))
 
+forward_rate_constants = states.forward_rate_constants
+equilibrium_constants = states.equilibrium_constants
+reverse_rate_constants = states.reverse_rate_constants
 
 def check_rates(i):
 
     eps = 1e-300
     delta = 1e-3
 
-    ratio = (states.forward_rate_constants[:, i] + eps) / \
+    ratio = (forward_rate_constants[:, i] + eps) / \
         (sol.forward_rate_constants[:, i].detach().cpu().numpy() + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
         print("forward constants {} {} {:.2e} {:.2e}".format(i, gas.reaction_equation(i), ratio.min(), ratio.max()))
 
-    ratio = (states.equilibrium_constants[:, i] + eps) / \
+    ratio = (equilibrium_constants[:, i] + eps) / \
         (sol.equilibrium_constants[:, i].detach().cpu().numpy() + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
         print("equilibrium constants {} {} {:.2e} {:.2e}".format(i, gas.reaction_equation(i), ratio.min(), ratio.max()))
 
-    ratio = (states.reverse_rate_constants[:, i] + eps) / \
+    ratio = (reverse_rate_constants[:, i] + eps) / \
         (sol.reverse_rate_constants[:, i].detach().cpu().numpy() + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
@@ -89,8 +92,12 @@ def check_rates(i):
 
     return i
 
-with Pool(4) as p:
-    print(p.map(check_rates, range(gas.n_reactions)))
+for i in range(gas.n_reactions):
+    check_rates(i)
+
+# if __name__ == '__main__':
+#     with Pool(4) as p:
+#         print(p.map(check_rates, range(gas.n_reactions)))
 
 t1_stop = perf_counter()
 print('sol check_rates time spent {:.1e} [s]'.format(t1_stop - t0_start))
