@@ -9,15 +9,16 @@ In case you are wondering what is the [relationshop between ReacTorch and Canter
 
 ```shell
 git clone git@github.com:DENG-MIT/reactorch.git
+cd reactorch
 python setup.py install
 ```
 
 ## Requirements
 
-* PyTorch > 1.5.0 (before 1.5.0, pytorch doesn't support jacobian)
+* PyTorch > 1.5.0 (before 1.5.0, PyTorch doesn't support jacobian)
 * Cantera > 2.5.0
 
-Some module might not work with older versions of pytorch and cantera. But you stil can have a try with older versions to see if it is enough for you.
+Some modules might not work with older versions of PyTorch and Cantera. But you stil can have a try with older versions to see if it is enough for you.
 
 ## Usage
 
@@ -25,7 +26,7 @@ Some module might not work with older versions of pytorch and cantera. But you s
 import reactorch as rt
 ```
 
-sample code can be found in `test/Solution_test.py` and examples. For example, the autoignition case demonstrate that you can compute jacobian matrix with only couple lines of code!
+Sample code can be found in `test/Solution_test.py` and examples folder. For example, the autoignition case demonstrates that you can compute jacobian matrix with only couple lines of code!
 
 ## Credit
 
