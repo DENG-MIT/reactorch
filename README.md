@@ -15,7 +15,7 @@ python setup.py install
 
 ## Requirements
 
-* PyTorch > 1.5.0 (before 1.5.0, PyTorch doesn't support jacobian)
+* PyTorch > 1.5.0
 * Cantera > 2.5.0
 
 Some modules might not work with older versions of PyTorch and Cantera. But you stil can have a try with older versions to see if it is enough for you.
