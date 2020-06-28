@@ -2,6 +2,7 @@ from time import perf_counter
 
 import cantera as ct
 import torch
+from torch.autograd.functional import jacobian as jacobian
 
 import reactorch as rt
 
@@ -53,6 +54,8 @@ TP = torch.stack((torch.Tensor(states.T), torch.Tensor(states.P)), dim=-1)
 Y = torch.Tensor(states.Y)
 TPY = torch.cat([TP, Y], dim=-1).to(device)
 
+TPY.requires_grad = True
+
 t0_start = perf_counter()
 
 sol.set_states(TPY)
@@ -60,9 +63,23 @@ sol.set_states(TPY)
 t1_stop = perf_counter()
 print('sol set_states time spent {:.1e} [s]'.format(t1_stop - t0_start))
 
-forward_rate_constants = states.forward_rate_constants
-equilibrium_constants = states.equilibrium_constants
-reverse_rate_constants = states.reverse_rate_constants
+sol.forward_rate_constants_func()
+
+sol.equilibrium_constants_func()
+
+sol.reverse_rate_constants_func()
+
+sol.wdot_func()
 
 t1_stop = perf_counter()
 print('sol check_rates time spent {:.1e} [s]'.format(t1_stop - t0_start))
+
+# Test if the AD works properly
+
+TPY_grad = torch.autograd.grad(outputs=sol.wdot.sum(),
+                               inputs=TPY,
+                               retain_graph=True,
+                               create_graph=True,
+                               allow_unused=True)[0]
+
+print(TPY_grad.shape)
