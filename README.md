@@ -1,4 +1,5 @@
 ## ReacTorch: A Differentiable Reacting Flow Simulation Package in PyTorch
+[![Documentation Status](https://readthedocs.org/projects/reactorch/badge/?version=latest)](https://reactorch.readthedocs.io/en/latest/?badge=latest)
 
 ReacTorch is a package for simulating chemically reacting flows in PyTorch. The capability of auto-differentiation enables us to efficiently compute the derivatives of the solutions to all of the species concentrations (obtaining Jacobian matrix) as well as model parameters (performing sensitivity analysis) at almost no cost. It also natively supports GPU computation with PyTorch. In addition, the capability of differentiating the entire reacting model is the foundation of adopting many recent hybrid physics-neural network algorithms. This package is aimed at providing an easily accessible platform for implementing those emerging hardware and software infrastructures from the deep learning community in chemically reacting flow simulations.
 
@@ -6,16 +7,18 @@ In case you are wondering what is the [relationshop between ReacTorch and Canter
 
 ## Installation
 
-```python
+```shell
+git clone git@github.com:DENG-MIT/reactorch.git
+cd reactorch
 python setup.py install
 ```
 
 ## Requirements
 
-* PyTorch > 1.5.0 (before 1.5.0, pytorch doesn't support jacobian)
-* Cantera >2.5.0
+* PyTorch >= 1.5
+* Cantera >= 2.5
 
-Some module might not work with older versions of pytorch and cantera. But you stil can have a try with older versions to see if it is enough for you.
+Detailed instructions on installing the dependent packages can be found in the [wiki page](https://github.com/DENG-MIT/reactorch/wiki/Installation). Some modules might not work with older versions of PyTorch and Cantera. But you stil can have a try with older versions to see if it is enough for you.
 
 ## Usage
 
@@ -23,7 +26,7 @@ Some module might not work with older versions of pytorch and cantera. But you s
 import reactorch as rt
 ```
 
-sample code can be found in `test/Solution_test.py` and examples. For example, the autoignition case demonstrate that you can compute jacobian matrix with only couple lines of code!
+Sample code can be found in `test/Solution_test.py` and examples folder. For example, the autoignition case demonstrates that you can compute jacobian matrix with only couple lines of code!
 
 ## Credit
 
