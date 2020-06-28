@@ -56,11 +56,11 @@ class Solution(nn.Module):
 
     def set_nasa(self):
 
-        self.nasa_low = torch.zeros([self.gas.n_species, 7]).to(self.device)
+        self.nasa_low = torch.zeros([self.n_species, 7]).to(self.device)
 
-        self.nasa_high = torch.zeros([self.gas.n_species, 7]).to(self.device)
+        self.nasa_high = torch.zeros([self.n_species, 7]).to(self.device)
 
-        for i in range(self.gas.n_species):
+        for i in range(self.n_species):
 
             self.nasa_low[i, :] = torch.Tensor(
                 self.model_yaml['species'][i]['thermo']['data'][0])
@@ -70,7 +70,7 @@ class Solution(nn.Module):
 
     def set_reactions(self):
 
-        self.reaction = [[None]] * self.gas.n_reactions
+        self.reaction = [[None]] * self.n_reactions
 
         self.reactant_stoich_coeffs = torch.Tensor(
             self.gas.reactant_stoich_coeffs()).to(self.device)
@@ -84,12 +84,12 @@ class Solution(nn.Module):
         self.net_stoich_coeffs = self.product_stoich_coeffs - self.reactant_stoich_coeffs
 
         self.efficiencies_coeffs = torch.ones(
-            [self.gas.n_species, self.gas.n_reactions]).to(self.device)
+            [self.n_species, self.n_reactions]).to(self.device)
 
         self.Arrhenius_coeffs = torch.zeros(
-            [self.gas.n_reactions, 3]).to(self.device)
+            [self.n_reactions, 3]).to(self.device)
 
-        self.is_reversible = torch.ones([self.gas.n_reactions]).to(self.device)
+        self.is_reversible = torch.ones([self.n_reactions]).to(self.device)
 
         for i in range(self.n_reactions):
 
@@ -256,7 +256,7 @@ class Solution(nn.Module):
         """Update forward_rate_constants
         """
         self.forward_rate_constants = torch.zeros(
-            [self.T.shape[0], self.gas.n_reactions]).to(self.device)
+            [self.T.shape[0], self.n_reactions]).to(self.device)
 
         for i in range(self.n_reactions):
             if self.gas.reaction_type(i) in [1, 2, 4]:
