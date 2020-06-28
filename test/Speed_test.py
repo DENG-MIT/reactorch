@@ -1,10 +1,13 @@
+import sys
+# sys.path.append('/Users/weiqi/Dropbox (MIT)/C_Code/Github/reactorch')
+
 from time import perf_counter
 
 import cantera as ct
 import torch
-from torch.autograd.functional import jacobian as jacobian
 
 import reactorch as rt
+
 
 cpu = torch.device('cpu')
 

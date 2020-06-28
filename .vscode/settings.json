@@ -4,6 +4,7 @@
     "python.linting.enabled": true,
     "python.linting.flake8Args": [
         "--max-line-length=120",
-        // "--ignore=E402,F841,F401,E302,E305",
+        "--ignore=E402",
     ],
+    "python.pythonPath": "/home/jiweiqi/anaconda3/bin/python",
 }
