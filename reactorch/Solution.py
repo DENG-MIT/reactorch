@@ -274,30 +274,28 @@ class Solution(nn.Module):
         """Update forward_rate_constants
         """
 
-        Temp = self.T
-
         self.forward_rate_constants = torch.zeros(
-            [Temp.shape[0], self.n_reactions]).to(self.device)
+            [self.T.shape[0], self.n_reactions]).to(self.device)
 
         for i in range(self.n_reactions):
             reaction = self.reaction[i]
 
             if reaction['reaction_type'] in [1, 2, 4]:
                 self.k = reaction['A'] * \
-                    torch.pow(Temp, reaction['b']) * \
-                    torch.exp(-reaction['Ea'] / Temp)
+                    torch.pow(self.T, reaction['b']) * \
+                    torch.exp(-reaction['Ea'] / self.T)
 
             if reaction['reaction_type'] in [2]:
                 self.k = self.k * self.C_M[:, i:i + 1]
 
             if reaction['reaction_type'] in [4]:
                 self.kinf = reaction['A'] * \
-                    torch.pow(Temp, reaction['b']) * \
-                    torch.exp(-reaction['Ea'] / Temp)
+                    torch.pow(self.T, reaction['b']) * \
+                    torch.exp(-reaction['Ea'] / self.T)
 
                 self.k0 = self.reaction[i]['A_0'] * \
-                    torch.pow(Temp, reaction['b_0']) * \
-                    torch.exp(-reaction['Ea_0'] / Temp)
+                    torch.pow(self.T, reaction['b_0']) * \
+                    torch.exp(-reaction['Ea_0'] / self.T)
 
                 Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
                 lPr = torch.log10(Pr)
@@ -309,12 +307,12 @@ class Solution(nn.Module):
                     T1 = reaction['Troe']['T1']
                     T3 = reaction['Troe']['T3']
 
-                    F_cent = (1 - A) * torch.exp(-Temp / T3) + \
-                        A * torch.exp(-Temp / T1)
+                    F_cent = (1 - A) * torch.exp(-self.T / T3) + \
+                        A * torch.exp(-self.T / T1)
 
                     if 'T2' in reaction['Troe']:
                         T2 = reaction['Troe']['T2']
-                        F_cent = F_cent + torch.exp(-T2 / Temp)
+                        F_cent = F_cent + torch.exp(-T2 / self.T)
 
                     lF_cent = torch.log10(F_cent)
                     C = -0.4 - 0.67 * lF_cent
