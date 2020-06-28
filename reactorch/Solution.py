@@ -36,9 +36,11 @@ class Solution(nn.Module):
 
         self.n_reactions = self.gas.n_reactions
 
-        self.uq_A = nn.Parameter(torch.Tensor(self.n_reactions).fill_(1.0).to(self.device))
+        self.uq_A = nn.Parameter(torch.Tensor(
+            self.n_reactions).fill_(1.0).to(self.device))
 
-        self.molecular_weights = torch.Tensor([self.gas.molecular_weights]).T.to(self.device)
+        self.molecular_weights = torch.Tensor(
+            [self.gas.molecular_weights]).T.to(self.device)
 
         with open(mech_yaml, 'r') as stream:
 
@@ -60,25 +62,32 @@ class Solution(nn.Module):
 
         for i in range(self.gas.n_species):
 
-            self.nasa_low[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][0])
+            self.nasa_low[i, :] = torch.Tensor(
+                self.model_yaml['species'][i]['thermo']['data'][0])
 
-            self.nasa_high[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][1])
+            self.nasa_high[i, :] = torch.Tensor(
+                self.model_yaml['species'][i]['thermo']['data'][1])
 
     def set_reactions(self):
 
         self.reaction = [[None]] * self.gas.n_reactions
 
-        self.reactant_stoich_coeffs = torch.Tensor(self.gas.reactant_stoich_coeffs()).to(self.device)
+        self.reactant_stoich_coeffs = torch.Tensor(
+            self.gas.reactant_stoich_coeffs()).to(self.device)
 
-        self.reactant_orders = torch.Tensor(self.gas.reactant_stoich_coeffs()).to(self.device)
+        self.reactant_orders = torch.Tensor(
+            self.gas.reactant_stoich_coeffs()).to(self.device)
 
-        self.product_stoich_coeffs = torch.Tensor(self.gas.product_stoich_coeffs()).to(self.device)
+        self.product_stoich_coeffs = torch.Tensor(
+            self.gas.product_stoich_coeffs()).to(self.device)
 
         self.net_stoich_coeffs = self.product_stoich_coeffs - self.reactant_stoich_coeffs
 
-        self.efficiencies_coeffs = torch.ones([self.gas.n_species, self.gas.n_reactions]).to(self.device)
+        self.efficiencies_coeffs = torch.ones(
+            [self.gas.n_species, self.gas.n_reactions]).to(self.device)
 
-        self.Arrhenius_coeffs = torch.zeros([self.gas.n_reactions, 3]).to(self.device)
+        self.Arrhenius_coeffs = torch.zeros(
+            [self.gas.n_reactions, 3]).to(self.device)
 
         self.is_reversible = torch.ones([self.gas.n_reactions]).to(self.device)
 
@@ -107,9 +116,11 @@ class Solution(nn.Module):
                     [self.model_yaml['reactions'][i]['rate-constant']['b']]).to(self.device)
 
                 if type(self.model_yaml['reactions'][i]['rate-constant']['Ea']) is str:
-                    Ea = np.float64([self.model_yaml['reactions'][i]['rate-constant']['Ea'].split(' ')[0]])
+                    Ea = np.float64(
+                        [self.model_yaml['reactions'][i]['rate-constant']['Ea'].split(' ')[0]])
                 else:
-                    Ea = [self.model_yaml['reactions'][i]['rate-constant']['Ea']]
+                    Ea = [self.model_yaml['reactions']
+                          [i]['rate-constant']['Ea']]
 
                 self.reaction[i]['Ea'] = torch.Tensor(Ea).to(self.device)
 
@@ -118,7 +129,8 @@ class Solution(nn.Module):
                 if 'efficiencies' in self.model_yaml['reactions'][i]:
                     self.reaction[i]['efficiencies'] = self.model_yaml['reactions'][i]['efficiencies']
                     for key, value in self.reaction[i]['efficiencies'].items():
-                        self.efficiencies_coeffs[self.gas.species_index(key), i] = value
+                        self.efficiencies_coeffs[self.gas.species_index(
+                            key), i] = value
 
             if self.gas.reaction_type(i) in [4]:
 
@@ -126,9 +138,11 @@ class Solution(nn.Module):
 
                 low_p = self.model_yaml['reactions'][i]['low-P-rate-constant']
 
-                self.reaction[i]['A'] = torch.Tensor([high_p['A']]).to(self.device)
+                self.reaction[i]['A'] = torch.Tensor(
+                    [high_p['A']]).to(self.device)
 
-                self.reaction[i]['b'] = torch.Tensor([high_p['b']]).to(self.device)
+                self.reaction[i]['b'] = torch.Tensor(
+                    [high_p['b']]).to(self.device)
 
                 if type(high_p['Ea']) is str:
                     Ea = np.float64([high_p['Ea'].split(' ')[0]])
@@ -137,9 +151,11 @@ class Solution(nn.Module):
 
                 self.reaction[i]['Ea'] = torch.Tensor(Ea).to(self.device)
 
-                self.reaction[i]['A_0'] = torch.Tensor([low_p['A']]).to(self.device)
+                self.reaction[i]['A_0'] = torch.Tensor(
+                    [low_p['A']]).to(self.device)
 
-                self.reaction[i]['b_0'] = torch.Tensor([low_p['b']]).to(self.device)
+                self.reaction[i]['b_0'] = torch.Tensor(
+                    [low_p['b']]).to(self.device)
 
                 if type(low_p['Ea']) is str:
                     Ea = np.float64([low_p['Ea'].split(' ')[0]])
@@ -164,18 +180,21 @@ class Solution(nn.Module):
 
             if 'orders' in self.model_yaml['reactions'][i]:
                 for key, value in self.model_yaml['reactions'][i]['orders'].items():
-                    self.reactant_orders[self.gas.species_index(key), i] = value
+                    self.reactant_orders[self.gas.species_index(
+                        key), i] = value
 
             if 'units' in self.model_yaml:
                 if self.model_yaml['units']['length'] == 'cm' and self.model_yaml['units']['quantity'] == 'mol':
-                    self.reaction[i]['A'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                    self.reaction[i]['A'] *= (1e-3) ** (
+                        self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
                     if self.gas.reaction_type(i) in [2]:
                         self.reaction[i]['A'] *= 1e-3
 
                     if self.gas.reaction_type(i) in [4]:
                         self.reaction[i]['A_0'] *= 1e-3
-                        self.reaction[i]['A_0'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                        self.reaction[i]['A_0'] *= (1e-3) ** (
+                            self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
             self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
             self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b']
@@ -200,7 +219,8 @@ class Solution(nn.Module):
 
         self.Y = (self.Y.T / self.Y.sum(dim=1)).T
 
-        self.mean_molecular_weight = 1 / torch.mm(self.Y, 1 / self.molecular_weights)
+        self.mean_molecular_weight = 1 / \
+            torch.mm(self.Y, 1 / self.molecular_weights)
 
         self.density_mass = self.P / self.R / self.T * self.mean_molecular_weight
 
@@ -235,13 +255,15 @@ class Solution(nn.Module):
     def forward_rate_constants_func(self):
         """Update forward_rate_constants
         """
-        self.forward_rate_constants = torch.zeros([self.T.shape[0], self.gas.n_reactions]).to(self.device)
+        self.forward_rate_constants = torch.zeros(
+            [self.T.shape[0], self.gas.n_reactions]).to(self.device)
 
         for i in range(self.n_reactions):
             if self.gas.reaction_type(i) in [1, 2, 4]:
                 self.k = self.reaction[i]['A'] * \
                     torch.pow(self.T, self.reaction[i]['b']) * \
-                    torch.exp(-self.reaction[i]['Ea'] * 4.184 * 1000 / self.R / self.T)
+                    torch.exp(-self.reaction[i]['Ea']
+                              * 4.184 * 1000 / self.R / self.T)
 
             if self.gas.reaction_type(i) in [2]:
                 self.k = self.k * self.C_M[:, i:i + 1]
@@ -249,11 +271,13 @@ class Solution(nn.Module):
             if self.gas.reaction_type(i) in [4]:
                 self.kinf = self.reaction[i]['A'] * \
                     torch.pow(self.T, self.reaction[i]['b']) * \
-                    torch.exp(-self.reaction[i]['Ea'] * 4.184 * 1000 / self.R / self.T)
+                    torch.exp(-self.reaction[i]['Ea']
+                              * 4.184 * 1000 / self.R / self.T)
 
                 self.k0 = self.reaction[i]['A_0'] * \
                     torch.pow(self.T, self.reaction[i]['b_0']) * \
-                    torch.exp(-self.reaction[i]['Ea_0'] * 4.184 * 1000 / self.R / self.T)
+                    torch.exp(-self.reaction[i]['Ea_0']
+                              * 4.184 * 1000 / self.R / self.T)
 
                 Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
                 lPr = torch.log10(Pr)
@@ -265,7 +289,8 @@ class Solution(nn.Module):
                     T1 = self.reaction[i]['Troe']['T1']
                     T3 = self.reaction[i]['Troe']['T3']
 
-                    F_cent = (1 - A) * torch.exp(-self.T / T3) + A * torch.exp(-self.T / T1)
+                    F_cent = (1 - A) * torch.exp(-self.T / T3) + \
+                        A * torch.exp(-self.T / T1)
 
                     if 'T2' in self.reaction[i]['Troe']:
                         T2 = self.reaction[i]['Troe']['T2']
@@ -290,11 +315,13 @@ class Solution(nn.Module):
         delta_H_over_RT = torch.mm(self.H, vk) / self.R / self.T
         Kp = torch.exp(delta_S_over_R - delta_H_over_RT)
 
-        self.equilibrium_constants = Kp * torch.pow(self.P_atm / self.R / self.T, vk.sum(dim=0))
+        self.equilibrium_constants = Kp * \
+            torch.pow(self.P_atm / self.R / self.T, vk.sum(dim=0))
 
     def reverse_rate_constants_func(self):
 
-        self.reverse_rate_constants = self.forward_rate_constants / self.equilibrium_constants * self.is_reversible
+        self.reverse_rate_constants = self.forward_rate_constants / \
+            self.equilibrium_constants * self.is_reversible
 
     def wdot_func(self):
 
@@ -304,7 +331,8 @@ class Solution(nn.Module):
             torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
 
         self.reverse_rates_of_progress = self.reverse_rate_constants * \
-            torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs))
+            torch.exp(torch.mm(torch.log(self.C + eps),
+                               self.product_stoich_coeffs))
 
         self.qdot = self.forward_rates_of_progress - self.reverse_rates_of_progress
 
@@ -316,21 +344,27 @@ class Solution(nn.Module):
 
     def set_transport(self, species_viscosities_poly, thermal_conductivity_poly, binary_diff_coeffs_poly):
 
-        self.species_viscosities_poly = torch.from_numpy(species_viscosities_poly).to(self.device)
+        self.species_viscosities_poly = torch.from_numpy(
+            species_viscosities_poly).to(self.device)
 
-        self.thermal_conductivity_poly = torch.from_numpy(thermal_conductivity_poly).to(self.device)
+        self.thermal_conductivity_poly = torch.from_numpy(
+            thermal_conductivity_poly).to(self.device)
 
-        self.binary_diff_coeffs_poly = torch.from_numpy(binary_diff_coeffs_poly).to(self.device)
+        self.binary_diff_coeffs_poly = torch.from_numpy(
+            binary_diff_coeffs_poly).to(self.device)
 
         self.poly_order = self.species_viscosities_poly.shape[0]
 
     def viscosities_func(self):
 
-        self.trans_T = torch.cat([self.logT ** i for i in reversed(range(self.poly_order))], dim=1)
+        self.trans_T = torch.cat(
+            [self.logT ** i for i in reversed(range(self.poly_order))], dim=1)
 
-        self.species_viscosities = torch.mm(self.trans_T, self.species_viscosities_poly)
+        self.species_viscosities = torch.mm(
+            self.trans_T, self.species_viscosities_poly)
 
-        self.Wk_over_Wj = torch.mm(self.molecular_weights, 1 / self.molecular_weights.T)
+        self.Wk_over_Wj = torch.mm(
+            self.molecular_weights, 1 / self.molecular_weights.T)
 
         self.Wj_over_Wk = 1 / self.Wk_over_Wj
 
@@ -345,11 +379,13 @@ class Solution(nn.Module):
 
     def thermal_conductivity_func(self):
 
-        self.species_thermal_conductivity = torch.mm(self.trans_T, self.thermal_conductivity_poly)
+        self.species_thermal_conductivity = torch.mm(
+            self.trans_T, self.thermal_conductivity_poly)
 
         self.thermal_conductivity = 0.5 * (
             (self.X.clone() * self.species_thermal_conductivity).sum(dim=1, keepdim=True) +
-            1 / (self.X.clone() / self.species_thermal_conductivity).sum(dim=1, keepdim=True)
+            1 / (self.X.clone() /
+                 self.species_thermal_conductivity).sum(dim=1, keepdim=True)
         )
 
     def binary_diff_coeffs_func(self):
@@ -359,12 +395,14 @@ class Solution(nn.Module):
 
         self.X_eps = self.X.clamp_(1e-12)
 
-        self.XjWj = torch.mm(self.X_eps, self.molecular_weights) - self.X_eps * self.molecular_weights.T
+        self.XjWj = torch.mm(self.X_eps, self.molecular_weights) - \
+            self.X_eps * self.molecular_weights.T
 
         self.XjDjk = torch.bmm(self.X_eps.view(-1, 1, self.n_species), 1 / self.binary_diff_coeffs).squeeze(1) - \
             self.X_eps / self.binary_diff_coeffs.diagonal(dim1=-2, dim2=-1)
 
-        self.mix_diff_coeffs = self.XjWj / self.XjDjk / self.mean_molecular_weight / self.P * self.P_atm
+        self.mix_diff_coeffs = self.XjWj / self.XjDjk / \
+            self.mean_molecular_weight / self.P * self.P_atm
 
     # Magic Functions
 
@@ -385,10 +423,12 @@ class Solution(nn.Module):
 
     def cp_mole_func(self):
 
-        self.cp_T = torch.cat([self.T ** 0, self.T, self.T ** 2, self.T ** 3, self.T ** 4], dim=1)
+        self.cp_T = torch.cat(
+            [self.T ** 0, self.T, self.T ** 2, self.T ** 3, self.T ** 4], dim=1)
 
         self.cp = torch.mm(self.cp_T, self.nasa_low[:, :5].T) * (self.T <= 1000).int() + \
-            torch.mm(self.cp_T, self.nasa_high[:, :5].T) * (self.T > 1000).int()
+            torch.mm(
+                self.cp_T, self.nasa_high[:, :5].T) * (self.T > 1000).int()
 
         self.cp_mole = (self.R * self.cp * self.X.clone()).sum(dim=1)
 
@@ -422,11 +462,13 @@ class Solution(nn.Module):
                               self.T ** 3 / 3, self.T ** 4 / 4, self.T ** 0), dim=1)
 
         self.S0 = torch.mm(self.S_T, self.nasa_low[:, [0, 1, 2, 3, 4, 6]].T) * (self.T <= 1000).int() + \
-            torch.mm(self.S_T, self.nasa_high[:, [0, 1, 2, 3, 4, 6]].T) * (self.T > 1000).int()
+            torch.mm(self.S_T, self.nasa_high[:, [
+                     0, 1, 2, 3, 4, 6]].T) * (self.T > 1000).int()
 
         self.S0 = self.S0 * self.R
 
-        self.S = self.S0 - self.R * torch.log(self.X) - self.R * torch.log(self.P / ct.one_atm)
+        self.S = self.S0 - self.R * \
+            torch.log(self.X) - self.R * torch.log(self.P / ct.one_atm)
 
         self.partial_molar_entropies = self.S
 
@@ -448,7 +490,8 @@ class Solution(nn.Module):
 
     def Tdot_func(self):
 
-        self.Tdot = -((self.partial_molar_enthalpies * self.wdot).sum(dim=1) / self.density_mass.T / self.cp_mass).T
+        self.Tdot = -((self.partial_molar_enthalpies *
+                       self.wdot).sum(dim=1) / self.density_mass.T / self.cp_mass).T
 
     def TXdot_func(self):
 
