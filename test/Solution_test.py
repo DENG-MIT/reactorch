@@ -61,9 +61,15 @@ sol.set_states(TPY)
 t1_stop = perf_counter()
 print('sol set_states time spent {:.1e} [s]'.format(t1_stop - t0_start))
 
-forward_rate_constants = states.forward_rate_constants
-equilibrium_constants = states.equilibrium_constants
-reverse_rate_constants = states.reverse_rate_constants
+reaction_equation = gas.reaction_equations()
+
+kf = states.forward_rate_constants
+kc = states.equilibrium_constants
+kr = states.reverse_rate_constants
+
+kf_rt = sol.forward_rate_constants.detach().cpu().numpy()
+kc_rt = sol.equilibrium_constants.detach().cpu().numpy()
+kr_rt = sol.reverse_rate_constants.detach().cpu().numpy()
 
 
 def check_rates(i):
@@ -71,26 +77,23 @@ def check_rates(i):
     eps = 1e-300
     delta = 1e-3
 
-    ratio = (forward_rate_constants[:, i] + eps) / \
-        (sol.forward_rate_constants[:, i].detach().cpu().numpy() + eps)
+    ratio = (kf[:, i] + eps) / (kf[:, i] + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
         print("forward constants {} {} {:.2e} {:.2e}".format(
-            i, gas.reaction_equation(i), ratio.min(), ratio.max()))
+            i, reaction_equation[i], ratio.min(), ratio.max()))
 
-    ratio = (equilibrium_constants[:, i] + eps) / \
-        (sol.equilibrium_constants[:, i].detach().cpu().numpy() + eps)
+    ratio = (kc[:, i] + eps) / (kc[:, i] + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
         print("equilibrium constants {} {} {:.2e} {:.2e}".format(
-            i, gas.reaction_equation(i), ratio.min(), ratio.max()))
+            i, reaction_equation[i], ratio.min(), ratio.max()))
 
-    ratio = (reverse_rate_constants[:, i] + eps) / \
-        (sol.reverse_rate_constants[:, i].detach().cpu().numpy() + eps)
+    ratio = (kr[:, i] + eps) / (kr[:, i] + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
         print("reverse constants {} {} {:.2e} {:.2e}".format(
-            i, gas.reaction_equation(i), ratio.min(), ratio.max()))
+            i, reaction_equation[i], ratio.min(), ratio.max()))
 
     return i
 
