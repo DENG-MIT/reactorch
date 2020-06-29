@@ -10,7 +10,7 @@ case, the SciPy wrapper for VODE is used, which uses the same variable-order BDF
 methods as the Sundials CVODES solver used by Cantera.
 """
 
-#TODO: the reactorch class seems to be very slow here, will figure out later
+# TODO: the reactorch class seems to be very slow here, will figure out later
 
 import cantera as ct
 import numpy as np
@@ -56,6 +56,7 @@ class ReactorOdeRT(object):
         TPY = torch.Tensor(y).T
 
         with torch.no_grad():
+
             self.sol.set_states(TPY)
 
             TYdot = self.sol.TYdot_func()
@@ -63,21 +64,21 @@ class ReactorOdeRT(object):
         return TYdot.T.detach().cpu().numpy()
 
     def TYdot_jac(self, TPY):
-        
+
         TPY = torch.Tensor(TPY).unsqueeze(0)
-        
+
         sol.set_states(TPY)
-        
+
         return sol.TYdot_func().squeeze(0)
-    
+
     def jac(self, t, y):
-        
+
         TPY = torch.Tensor(y)
-        
+
         TPY.requires_grad = True
-        
+
         jac_ = jacobian(self.TYdot_jac, TPY, create_graph=False)
-        
+
         return jac_
 
 
@@ -89,8 +90,10 @@ gas = ct.Solution(mech_yaml)
 
 
 # Initial condition
-P = ct.one_atm
-gas.TPX = 1001, P, 'H2:2,O2:1,N2:4'
+P = ct.one_atm * 20
+T = 1301
+composition = 'CH4:0.5,O2:1,N2:4'
+gas.TPX = T, P, composition
 y0 = np.hstack((gas.T, gas.Y))
 
 # Set up objects representing the ODE and the solver
@@ -118,7 +121,7 @@ while ode_success and t < t_end:
     states.append(gas.state, t=t)
 
 
-sol.gas.TPX = 1001, P, 'H2:2,O2:1,N2:4'
+sol.gas.TPX = T, P, composition
 sol.set_pressure(sol.gas.P)
 ode_rt = ReactorOdeRT(sol=sol)
 
@@ -132,17 +135,19 @@ ode_success = True
 y = y0
 dt = 1e-5
 
+# Diable AD for jacobian seems more effient for this case.
+
 while ode_success and t < t_end:
     odesol = solve_ivp(ode_rt,
                        t_span=(t, t + dt),
                        y0=y,
                        method='BDF',
-                       vectorized=True, jac=ode_rt.jac)
+                       vectorized=True, jac=None)
 
     t = odesol.t[-1]
     y = odesol.y[:, -1]
     ode_successful = odesol.success
-    
+
     print('t {} T {}'.format(t, y[0]))
 
     sol.gas.TPY = odesol.y[0, -1], P, odesol.y[1:, -1]
@@ -151,21 +156,24 @@ while ode_success and t < t_end:
 # Plot the results
 try:
     import matplotlib.pyplot as plt
-    L1 = plt.plot(states.t, states.T, ls='--', color='r', label='T Cantera', lw=1)
+    L1 = plt.plot(states.t, states.T, ls='--',
+                  color='r', label='T Cantera', lw=1)
     L1_rt = plt.plot(states_rt.t, states_rt.T, ls='-',
-                     color='r', label='T ReacTorch', lw=2)
-    plt.xlabel('time (s)')
+                     color='r', label='T ReacTorch', lw=1)
+    plt.xlabel('Time (s)')
     plt.ylabel('Temperature (K)')
 
     plt.twinx()
     L2 = plt.plot(states.t, states('OH').Y, ls='--', label='OH Cantera', lw=1)
-    L2_rt = plt.plot(states_rt.t, states_rt(
-        'OH').Y, ls='-', label='OH ReacTorch', lw=1)
+    L2_rt = plt.plot(states_rt.t, states_rt('OH').Y,
+                     ls='-',
+                     label='OH ReacTorch',
+                     lw=1)
     plt.ylabel('Mass Fraction')
 
     plt.legend(L1+L2+L1_rt+L2_rt, [line.get_label()
-                                   for line in L1+L2+L1_rt+L2_rt], loc='lower right')
-    
+                                   for line in L1+L2+L1_rt+L2_rt], loc='best')
+
     plt.savefig('cantera_reactorch_validation.png', dpi=300)
     plt.show()
 except ImportError:
