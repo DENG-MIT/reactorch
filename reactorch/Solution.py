@@ -283,7 +283,7 @@ class Solution(nn.Module):
             if reaction['reaction_type'] in [1, 2, 4]:
                 self.k = reaction['A'] * \
                     torch.pow(self.T, reaction['b']) * \
-                    torch.exp(-reaction['Ea'] / self.T)
+                    torch.exp(-reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
 
             if reaction['reaction_type'] in [2]:
                 self.k = self.k * self.C_M[:, i:i + 1]
@@ -291,11 +291,11 @@ class Solution(nn.Module):
             if reaction['reaction_type'] in [4]:
                 self.kinf = reaction['A'] * \
                     torch.pow(self.T, reaction['b']) * \
-                    torch.exp(-reaction['Ea'] / self.T)
+                    torch.exp(-reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
 
                 self.k0 = self.reaction[i]['A_0'] * \
                     torch.pow(self.T, reaction['b_0']) * \
-                    torch.exp(-reaction['Ea_0'] / self.T)
+                    torch.exp(-reaction['Ea_0'] * 4.184 * 1000 / self.R / self.T)
 
                 Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
                 lPr = torch.log10(Pr)
