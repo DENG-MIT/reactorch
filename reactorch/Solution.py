@@ -9,7 +9,7 @@ __email__ = "weiqiji@mit.edu"
 __status__ = "Development"
 
 import cantera as ct
-import numpy as np
+#import numpy as np
 import torch
 from torch import nn
 from ruamel.yaml import YAML
@@ -129,8 +129,8 @@ class Solution(nn.Module):
                     [self.model_yaml['reactions'][i]['rate-constant']['b']]).to(self.device)
 
                 if type(self.model_yaml['reactions'][i]['rate-constant']['Ea']) is str:
-                    Ea = np.float64(
-                        [self.model_yaml['reactions'][i]['rate-constant']['Ea'].split(' ')[0]])
+                    Ea_list=list(map(eval, [self.model_yaml['reactions'][i]['rate-constant']['Ea'].split(' ')[0]]))
+                    Ea = torch.Tensor(Ea_list)
                 else:
                     Ea = [self.model_yaml['reactions']
                           [i]['rate-constant']['Ea']]
@@ -158,7 +158,8 @@ class Solution(nn.Module):
                     [high_p['b']]).to(self.device)
 
                 if type(high_p['Ea']) is str:
-                    Ea = np.float64([high_p['Ea'].split(' ')[0]])
+                    Ea_list = list(map(eval, [high_p['Ea'].split(' ')[0]]))
+                    Ea = torch.Tensor(Ea_list)
                 else:
                     Ea = [high_p['Ea']]
 
@@ -171,7 +172,8 @@ class Solution(nn.Module):
                     [low_p['b']]).to(self.device)
 
                 if type(low_p['Ea']) is str:
-                    Ea = np.float64([low_p['Ea'].split(' ')[0]])
+                    Ea_list = list(map(eval, [low_p['Ea'].split(' ')[0]]))
+                    Ea = torch.Tensor(Ea_list)
                 else:
                     Ea = [low_p['Ea']]
 
