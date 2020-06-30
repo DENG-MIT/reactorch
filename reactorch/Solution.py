@@ -307,7 +307,7 @@ class Solution(nn.Module):
                     torch.exp(-reaction['Ea_0'] * 4.184 * 1000 / self.R / self.T)'''
                 self.k0 = self.reaction[i]['A_0'] * \
                     torch.exp(reaction['b_0'] * torch.log(self.T) \
-                    - reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
+                    - reaction['Ea_0'] * 4.184 * 1000 / self.R / self.T)
 
                 Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
                 lPr = torch.log10(Pr)
