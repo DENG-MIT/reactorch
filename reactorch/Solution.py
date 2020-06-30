@@ -277,6 +277,8 @@ class Solution(nn.Module):
         self.forward_rate_constants = torch.zeros(
             [self.T.shape[0], self.n_reactions]).to(self.device)
 
+        ln10 = torch.log(torch.Tensor([10.0]))
+
         for i in range(self.n_reactions):
             reaction = self.reaction[i]
 
@@ -329,7 +331,7 @@ class Solution(nn.Module):
                     N = 0.75 - 1.27 * lF_cent
                     f1 = (lPr + C) / (N - 0.14 * (lPr + C))
                     '''F = torch.pow(10, lF_cent / (1 + f1 * f1))'''
-                    ln10 = torch.log(torch.Tensor([10.0]))
+                    
                     F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
 
                     self.k = self.k * F
@@ -352,12 +354,11 @@ class Solution(nn.Module):
         vk = (-self.reactant_stoich_coeffs + self.product_stoich_coeffs)
         delta_S_over_R = torch.mm(self.S0, vk) / self.R
         delta_H_over_RT = torch.mm(self.H, vk) / self.R / self.T
-        Kp = torch.exp(delta_S_over_R - delta_H_over_RT)
 
         '''self.equilibrium_constants = Kp * \
             torch.pow(self.P_atm / self.R / self.T, vk.sum(dim=0))'''
-        self.equilibrium_constants = Kp * \
-            torch.exp(torch.log(self.P_atm / self.R / self.T) * vk.sum(dim=0))
+        self.equilibrium_constants = \
+            torch.exp(delta_S_over_R - delta_H_over_RT + torch.log(self.P_atm / self.R / self.T) * vk.sum(dim=0))
 
     def reverse_rate_constants_func(self):
 
