@@ -277,25 +277,37 @@ class Solution(nn.Module):
         self.forward_rate_constants = torch.zeros(
             [self.T.shape[0], self.n_reactions]).to(self.device)
 
+        ln10 = torch.log(torch.Tensor([10.0])).to(self.device)
+
         for i in range(self.n_reactions):
             reaction = self.reaction[i]
 
             if reaction['reaction_type'] in [1, 2, 4]:
-                self.k = reaction['A'] * \
+                '''self.k = reaction['A'] * \
                     torch.pow(self.T, reaction['b']) * \
-                    torch.exp(-reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
+                    torch.exp(-reaction['Ea'] * 4.184 * 1000 / self.R / self.T)'''
+                self.k = reaction['A'] * \
+                    torch.exp(reaction['b'] * torch.log(self.T) \
+                    - reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
+        
 
             if reaction['reaction_type'] in [2]:
                 self.k = self.k * self.C_M[:, i:i + 1]
 
             if reaction['reaction_type'] in [4]:
-                self.kinf = reaction['A'] * \
+                '''self.kinf = reaction['A'] * \
                     torch.pow(self.T, reaction['b']) * \
-                    torch.exp(-reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
+                    torch.exp(-reaction['Ea'] * 4.184 * 1000 / self.R / self.T)'''
+                self.kinf = reaction['A'] * \
+                    torch.exp(reaction['b'] * torch.log(self.T) \
+                    - reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
 
-                self.k0 = self.reaction[i]['A_0'] * \
+                '''self.k0 = self.reaction[i]['A_0'] * \
                     torch.pow(self.T, reaction['b_0']) * \
-                    torch.exp(-reaction['Ea_0'] * 4.184 * 1000 / self.R / self.T)
+                    torch.exp(-reaction['Ea_0'] * 4.184 * 1000 / self.R / self.T)'''
+                self.k0 = self.reaction[i]['A_0'] * \
+                    torch.exp(reaction['b_0'] * torch.log(self.T) \
+                    - reaction['Ea_0'] * 4.184 * 1000 / self.R / self.T)
 
                 Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
                 lPr = torch.log10(Pr)
@@ -318,7 +330,9 @@ class Solution(nn.Module):
                     C = -0.4 - 0.67 * lF_cent
                     N = 0.75 - 1.27 * lF_cent
                     f1 = (lPr + C) / (N - 0.14 * (lPr + C))
-                    F = torch.pow(10, lF_cent / (1 + f1 * f1))
+                    '''F = torch.pow(10, lF_cent / (1 + f1 * f1))'''
+                    
+                    F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
 
                     self.k = self.k * F
 
@@ -328,19 +342,23 @@ class Solution(nn.Module):
 
     def forward_rate_constants_func_matrix(self):
 
-        self.kf = self.Arrhenius_A * \
+        '''self.kf = self.Arrhenius_A * \
             torch.pow(self.T, self.Arrhenius_b) * \
-            torch.exp(-self.Arrhenius_Ea / self.T)
+            torch.exp(-self.Arrhenius_Ea / self.T)'''
+        self.kf = self.Arrhenius_A * \
+            torch.exp(self.Arrhenius_b * torch.log(self.T) \
+            - self.Arrhenius_Ea / self.T)
 
     def equilibrium_constants_func(self):
 
         vk = (-self.reactant_stoich_coeffs + self.product_stoich_coeffs)
         delta_S_over_R = torch.mm(self.S0, vk) / self.R
         delta_H_over_RT = torch.mm(self.H, vk) / self.R / self.T
-        Kp = torch.exp(delta_S_over_R - delta_H_over_RT)
 
-        self.equilibrium_constants = Kp * \
-            torch.pow(self.P_atm / self.R / self.T, vk.sum(dim=0))
+        '''self.equilibrium_constants = Kp * \
+            torch.pow(self.P_atm / self.R / self.T, vk.sum(dim=0))'''
+        self.equilibrium_constants = \
+            torch.exp(delta_S_over_R - delta_H_over_RT + torch.log(self.P_atm / self.R / self.T) * vk.sum(dim=0))
 
     def reverse_rate_constants_func(self):
 
