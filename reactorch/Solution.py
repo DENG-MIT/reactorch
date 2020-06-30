@@ -13,7 +13,6 @@ import numpy as np
 import torch
 from torch import nn
 from ruamel.yaml import YAML
-import math
 
 torch.set_default_tensor_type("torch.DoubleTensor")
 
@@ -330,7 +329,8 @@ class Solution(nn.Module):
                     N = 0.75 - 1.27 * lF_cent
                     f1 = (lPr + C) / (N - 0.14 * (lPr + C))
                     '''F = torch.pow(10, lF_cent / (1 + f1 * f1))'''
-                    F = torch.exp(math.log(10) * lF_cent / (1 + f1 * f1))
+                    ln10 = torch.log(torch.Tensor([10.0]))
+                    F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
 
                     self.k = self.k * F
 
