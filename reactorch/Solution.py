@@ -130,7 +130,6 @@ class Solution(nn.Module):
 
                 if type(self.model_yaml['reactions'][i]['rate-constant']['Ea']) is str:
                     Ea_list=list(map(eval, [self.model_yaml['reactions'][i]['rate-constant']['Ea'].split(' ')[0]]))
-                    Ea = torch.Tensor(Ea_list)
                 else:
                     Ea = [self.model_yaml['reactions']
                           [i]['rate-constant']['Ea']]
@@ -159,7 +158,6 @@ class Solution(nn.Module):
 
                 if type(high_p['Ea']) is str:
                     Ea_list = list(map(eval, [high_p['Ea'].split(' ')[0]]))
-                    Ea = torch.Tensor(Ea_list)
                 else:
                     Ea = [high_p['Ea']]
 
@@ -173,7 +171,6 @@ class Solution(nn.Module):
 
                 if type(low_p['Ea']) is str:
                     Ea_list = list(map(eval, [low_p['Ea'].split(' ')[0]]))
-                    Ea = torch.Tensor(Ea_list)
                 else:
                     Ea = [low_p['Ea']]
 
