@@ -62,32 +62,25 @@ class Solution(nn.Module):
 
         for i in range(self.n_species):
 
-            self.nasa_low[i, :] = torch.Tensor(
-                self.model_yaml['species'][i]['thermo']['data'][0])
+            self.nasa_low[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][0])
 
-            self.nasa_high[i, :] = torch.Tensor(
-                self.model_yaml['species'][i]['thermo']['data'][1])
+            self.nasa_high[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][1])
 
     def set_reactions(self):
 
         self.reaction = [[None]] * self.n_reactions
 
-        self.reactant_stoich_coeffs = torch.Tensor(
-            self.gas.reactant_stoich_coeffs()).to(self.device)
+        self.reactant_stoich_coeffs = torch.Tensor(self.gas.reactant_stoich_coeffs()).to(self.device)
 
-        self.reactant_orders = torch.Tensor(
-            self.gas.reactant_stoich_coeffs()).to(self.device)
+        self.reactant_orders = torch.Tensor(self.gas.reactant_stoich_coeffs()).to(self.device)
 
-        self.product_stoich_coeffs = torch.Tensor(
-            self.gas.product_stoich_coeffs()).to(self.device)
+        self.product_stoich_coeffs = torch.Tensor(self.gas.product_stoich_coeffs()).to(self.device)
 
         self.net_stoich_coeffs = self.product_stoich_coeffs - self.reactant_stoich_coeffs
 
-        self.efficiencies_coeffs = torch.ones(
-            [self.n_species, self.n_reactions]).to(self.device)
+        self.efficiencies_coeffs = torch.ones([self.n_species, self.n_reactions]).to(self.device)
 
-        self.Arrhenius_coeffs = torch.zeros(
-            [self.n_reactions, 3]).to(self.device)
+        self.Arrhenius_coeffs = torch.zeros([self.n_reactions, 3]).to(self.device)
 
         self.is_reversible = torch.ones([self.n_reactions]).to(self.device)
 
@@ -99,12 +92,11 @@ class Solution(nn.Module):
 
             # Type 1: regular reaction, 2: three-body, 4:fall-off
 
+            yaml_reaction = self.model_yaml['reactions'][i]
+
             self.reaction[i] = {'equation': self.gas.reaction_equation(i)}
-
             self.reaction[i]['reactants'] = self.gas.reactants(i)
-
             self.reaction[i]['products'] = self.gas.products(i)
-
             self.reaction[i]['reaction_type'] = self.gas.reaction_type(i)
 
             if self.gas.reaction_type(i) in [1]:
@@ -117,101 +109,107 @@ class Solution(nn.Module):
                 self.list_reaction_type4.append(i)
 
             if self.gas.is_reversible(i) is False:
-
                 self.is_reversible[i].fill_(0)
 
             if self.gas.reaction_type(i) in [1, 2]:
 
-                self.reaction[i]['A'] = torch.Tensor(
-                    [self.model_yaml['reactions'][i]['rate-constant']['A']]).to(self.device)
+                self.reaction[i]['A'] = torch.Tensor([yaml_reaction['rate-constant']['A']]).to(self.device)
 
-                self.reaction[i]['b'] = torch.Tensor(
-                    [self.model_yaml['reactions'][i]['rate-constant']['b']]).to(self.device)
+                self.reaction[i]['b'] = torch.Tensor([yaml_reaction['rate-constant']['b']]).to(self.device)
 
-                if type(self.model_yaml['reactions'][i]['rate-constant']['Ea']) is str:
-                    Ea_list=list(map(eval, [self.model_yaml['reactions'][i]['rate-constant']['Ea'].split(' ')[0]]))
+                if type(yaml_reaction['rate-constant']['Ea']) is str:
+                    Ea = list(map(eval, [yaml_reaction['rate-constant']['Ea'].split(' ')[0]]))
                 else:
-                    Ea = [self.model_yaml['reactions']
-                          [i]['rate-constant']['Ea']]
+                    Ea = [yaml_reaction['rate-constant']['Ea']]
 
                 self.reaction[i]['Ea'] = torch.Tensor(Ea).to(self.device)
 
             if self.gas.reaction_type(i) in [2, 4]:
+
                 self.efficiencies_coeffs[:, i] = 1
-                if 'efficiencies' in self.model_yaml['reactions'][i]:
-                    self.reaction[i]['efficiencies'] = self.model_yaml['reactions'][i]['efficiencies']
+                
+                if 'efficiencies' in yaml_reaction:
+                
+                    self.reaction[i]['efficiencies'] = yaml_reaction['efficiencies']
+                
                     for key, value in self.reaction[i]['efficiencies'].items():
-                        self.efficiencies_coeffs[self.gas.species_index(
-                            key), i] = value
+                
+                        self.efficiencies_coeffs[self.gas.species_index(key), i] = value
 
             if self.gas.reaction_type(i) in [4]:
 
-                high_p = self.model_yaml['reactions'][i]['high-P-rate-constant']
+                high_p = yaml_reaction['high-P-rate-constant']
 
-                low_p = self.model_yaml['reactions'][i]['low-P-rate-constant']
+                low_p = yaml_reaction['low-P-rate-constant']
 
-                self.reaction[i]['A'] = torch.Tensor(
-                    [high_p['A']]).to(self.device)
+                self.reaction[i]['A'] = torch.Tensor([high_p['A']]).to(self.device)
 
-                self.reaction[i]['b'] = torch.Tensor(
-                    [high_p['b']]).to(self.device)
+                self.reaction[i]['b'] = torch.Tensor([high_p['b']]).to(self.device)
 
                 if type(high_p['Ea']) is str:
-                    Ea_list = list(map(eval, [high_p['Ea'].split(' ')[0]]))
+
+                    Ea = list(map(eval, [high_p['Ea'].split(' ')[0]]))
+
                 else:
+
                     Ea = [high_p['Ea']]
 
                 self.reaction[i]['Ea'] = torch.Tensor(Ea).to(self.device)
 
-                self.reaction[i]['A_0'] = torch.Tensor(
-                    [low_p['A']]).to(self.device)
+                self.reaction[i]['A_0'] = torch.Tensor([low_p['A']]).to(self.device)
 
-                self.reaction[i]['b_0'] = torch.Tensor(
-                    [low_p['b']]).to(self.device)
+                self.reaction[i]['b_0'] = torch.Tensor([low_p['b']]).to(self.device)
 
                 if type(low_p['Ea']) is str:
-                    Ea_list = list(map(eval, [low_p['Ea'].split(' ')[0]]))
+
+                    Ea = list(map(eval, [low_p['Ea'].split(' ')[0]]))
+
                 else:
+
                     Ea = [low_p['Ea']]
 
                 self.reaction[i]['Ea_0'] = torch.Tensor(Ea).to(self.device)
 
-                if 'Troe' in self.model_yaml['reactions'][i]:
-                    Troe = self.model_yaml['reactions'][i]['Troe']
-                    if 'T2' in self.model_yaml['reactions'][i]['Troe']:
+                if 'Troe' in yaml_reaction:
+
+                    Troe = yaml_reaction['Troe']
+
+                    if 'T2' in Troe:
+
                         self.reaction[i]['Troe'] = {'A': torch.Tensor([Troe['A']]).to(self.device),
                                                     'T1': torch.Tensor([Troe['T1']]).to(self.device),
                                                     'T2': torch.Tensor([Troe['T2']]).to(self.device),
                                                     'T3': torch.Tensor([Troe['T3']]).to(self.device)
                                                     }
+
                     else:
+
                         self.reaction[i]['Troe'] = {'A': torch.Tensor([Troe['A']]).to(self.device),
                                                     'T1': torch.Tensor([Troe['T1']]).to(self.device),
                                                     'T3': torch.Tensor([Troe['T3']]).to(self.device)
                                                     }
 
-            if 'orders' in self.model_yaml['reactions'][i]:
-                for key, value in self.model_yaml['reactions'][i]['orders'].items():
-                    self.reactant_orders[self.gas.species_index(
-                        key), i] = value
+            if 'orders' in yaml_reaction:
+
+                for key, value in yaml_reaction['orders'].items():
+
+                    self.reactant_orders[self.gas.species_index(key), i] = value
 
             if 'units' in self.model_yaml:
+
                 if self.model_yaml['units']['length'] == 'cm' and self.model_yaml['units']['quantity'] == 'mol':
-                    self.reaction[i]['A'] *= (1e-3) ** (
-                        self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                    self.reaction[i]['A'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
                     if self.gas.reaction_type(i) in [2]:
                         self.reaction[i]['A'] *= 1e-3
 
                     if self.gas.reaction_type(i) in [4]:
                         self.reaction[i]['A_0'] *= 1e-3
-                        self.reaction[i]['A_0'] *= (1e-3) ** (
-                            self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                        self.reaction[i]['A_0'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
             self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
             self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b']
-            self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea'] \
-                * 4184 / self.R
+            self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea']
 
         self.Arrhenius_A = self.Arrhenius_coeffs[:, 0]
         self.Arrhenius_b = self.Arrhenius_coeffs[:, 1]
@@ -236,8 +234,7 @@ class Solution(nn.Module):
 
         self.Y = (self.Y.T / self.Y.sum(dim=1)).T
 
-        self.mean_molecular_weight = 1 / \
-            torch.mm(self.Y, 1 / self.molecular_weights)
+        self.mean_molecular_weight = 1 / torch.mm(self.Y, 1 / self.molecular_weights)
 
         self.density_mass = self.P / self.R / self.T * self.mean_molecular_weight
 
@@ -282,31 +279,22 @@ class Solution(nn.Module):
             reaction = self.reaction[i]
 
             if reaction['reaction_type'] in [1, 2, 4]:
-                '''self.k = reaction['A'] * \
-                    torch.pow(self.T, reaction['b']) * \
-                    torch.exp(-reaction['Ea'] * 4.184 * 1000 / self.R / self.T)'''
                 self.k = reaction['A'] * \
                     torch.exp(reaction['b'] * torch.log(self.T) \
-                    - reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
+                    - reaction['Ea'] * 4184.0 / self.R / self.T)
         
 
             if reaction['reaction_type'] in [2]:
                 self.k = self.k * self.C_M[:, i:i + 1]
 
             if reaction['reaction_type'] in [4]:
-                '''self.kinf = reaction['A'] * \
-                    torch.pow(self.T, reaction['b']) * \
-                    torch.exp(-reaction['Ea'] * 4.184 * 1000 / self.R / self.T)'''
                 self.kinf = reaction['A'] * \
                     torch.exp(reaction['b'] * torch.log(self.T) \
-                    - reaction['Ea'] * 4.184 * 1000 / self.R / self.T)
+                    - reaction['Ea'] * 4184.0 / self.R / self.T)
 
-                '''self.k0 = self.reaction[i]['A_0'] * \
-                    torch.pow(self.T, reaction['b_0']) * \
-                    torch.exp(-reaction['Ea_0'] * 4.184 * 1000 / self.R / self.T)'''
                 self.k0 = self.reaction[i]['A_0'] * \
                     torch.exp(reaction['b_0'] * torch.log(self.T) \
-                    - reaction['Ea_0'] * 4.184 * 1000 / self.R / self.T)
+                    - reaction['Ea_0'] * 4184.0 / self.R / self.T)
 
                 Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
                 lPr = torch.log10(Pr)
@@ -329,8 +317,6 @@ class Solution(nn.Module):
                     C = -0.4 - 0.67 * lF_cent
                     N = 0.75 - 1.27 * lF_cent
                     f1 = (lPr + C) / (N - 0.14 * (lPr + C))
-                    '''F = torch.pow(10, lF_cent / (1 + f1 * f1))'''
-                    
                     F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
 
                     self.k = self.k * F
@@ -341,12 +327,8 @@ class Solution(nn.Module):
 
     def forward_rate_constants_func_matrix(self):
 
-        '''self.kf = self.Arrhenius_A * \
-            torch.pow(self.T, self.Arrhenius_b) * \
-            torch.exp(-self.Arrhenius_Ea / self.T)'''
         self.kf = self.Arrhenius_A * \
-            torch.exp(self.Arrhenius_b * torch.log(self.T) \
-            - self.Arrhenius_Ea / self.T)
+            torch.exp(self.Arrhenius_b * torch.log(self.T) - self.Arrhenius_Ea  * 4184.0 / self.R / self.T)
 
     def equilibrium_constants_func(self):
 
@@ -354,8 +336,6 @@ class Solution(nn.Module):
         delta_S_over_R = torch.mm(self.S0, vk) / self.R
         delta_H_over_RT = torch.mm(self.H, vk) / self.R / self.T
 
-        '''self.equilibrium_constants = Kp * \
-            torch.pow(self.P_atm / self.R / self.T, vk.sum(dim=0))'''
         self.equilibrium_constants = \
             torch.exp(delta_S_over_R - delta_H_over_RT + torch.log(self.P_atm / self.R / self.T) * vk.sum(dim=0))
 
@@ -400,11 +380,9 @@ class Solution(nn.Module):
         self.trans_T = torch.cat(
             [self.logT ** i for i in reversed(range(self.poly_order))], dim=1)
 
-        self.species_viscosities = torch.mm(
-            self.trans_T, self.species_viscosities_poly)
+        self.species_viscosities = torch.mm(self.trans_T, self.species_viscosities_poly)
 
-        self.Wk_over_Wj = torch.mm(
-            self.molecular_weights, 1 / self.molecular_weights.T)
+        self.Wk_over_Wj = torch.mm(self.molecular_weights, 1 / self.molecular_weights.T)
 
         self.Wj_over_Wk = 1 / self.Wk_over_Wj
 
@@ -419,8 +397,7 @@ class Solution(nn.Module):
 
     def thermal_conductivity_func(self):
 
-        self.species_thermal_conductivity = torch.mm(
-            self.trans_T, self.thermal_conductivity_poly)
+        self.species_thermal_conductivity = torch.mm(self.trans_T, self.thermal_conductivity_poly)
 
         self.thermal_conductivity = 0.5 * (
             (self.X.clone() * self.species_thermal_conductivity).sum(dim=1, keepdim=True) +
