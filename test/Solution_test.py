@@ -1,9 +1,7 @@
-from multiprocessing import Pool
+# from multiprocessing import Pool
 from time import perf_counter
 
 import cantera as ct
-import matplotlib.pyplot as plt
-import numpy as np
 import torch
 
 import reactorch as rt
@@ -63,34 +61,49 @@ sol.set_states(TPY)
 t1_stop = perf_counter()
 print('sol set_states time spent {:.1e} [s]'.format(t1_stop - t0_start))
 
+reaction_equation = gas.reaction_equations()
+
+kf = states.forward_rate_constants
+kc = states.equilibrium_constants
+kr = states.reverse_rate_constants
+
+kf_rt = sol.forward_rate_constants.detach().cpu().numpy()
+kc_rt = sol.equilibrium_constants.detach().cpu().numpy()
+kr_rt = sol.reverse_rate_constants.detach().cpu().numpy()
+
 
 def check_rates(i):
 
     eps = 1e-300
     delta = 1e-3
 
-    ratio = (states.forward_rate_constants[:, i] + eps) / \
-        (sol.forward_rate_constants[:, i].detach().cpu().numpy() + eps)
+    ratio = (kf[:, i] + eps) / (kf_rt[:, i] + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
-        print("forward constants {} {} {:.2e} {:.2e}".format(i, gas.reaction_equation(i), ratio.min(), ratio.max()))
+        print("forward constants {} {} {:.4e} {:.4e}".format(
+            i, reaction_equation[i], ratio.min(), ratio.max()))
 
-    ratio = (states.equilibrium_constants[:, i] + eps) / \
-        (sol.equilibrium_constants[:, i].detach().cpu().numpy() + eps)
-
-    if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
-        print("equilibrium constants {} {} {:.2e} {:.2e}".format(i, gas.reaction_equation(i), ratio.min(), ratio.max()))
-
-    ratio = (states.reverse_rate_constants[:, i] + eps) / \
-        (sol.reverse_rate_constants[:, i].detach().cpu().numpy() + eps)
+    ratio = (kc[:, i] + eps) / (kc_rt[:, i] + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
-        print("reverse constants {} {} {:.2e} {:.2e}".format(i, gas.reaction_equation(i), ratio.min(), ratio.max()))
+        print("equilibrium constants {} {} {:.4e} {:.4e}".format(
+            i, reaction_equation[i], ratio.min(), ratio.max()))
+
+    ratio = (kr[:, i] + eps) / (kr_rt[:, i] + eps)
+
+    if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
+        print("reverse constants {} {} {:.4e} {:.4e}".format(
+            i, reaction_equation[i], ratio.min(), ratio.max()))
 
     return i
 
-with Pool(4) as p:
-    print(p.map(check_rates, range(gas.n_reactions)))
+
+for i in range(gas.n_reactions):
+    check_rates(i)
+
+# if __name__ == '__main__':
+#     with Pool(4) as p:
+#         print(p.map(check_rates, range(gas.n_reactions)))
 
 t1_stop = perf_counter()
 print('sol check_rates time spent {:.1e} [s]'.format(t1_stop - t0_start))
