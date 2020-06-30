@@ -77,22 +77,22 @@ def check_rates(i):
     eps = 1e-300
     delta = 1e-3
 
-    ratio = (kf[:, i] + eps) / (kf[:, i] + eps)
+    ratio = (kf[:, i] + eps) / (kf_rt[:, i] + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
-        print("forward constants {} {} {:.2e} {:.2e}".format(
+        print("forward constants {} {} {:.4e} {:.4e}".format(
             i, reaction_equation[i], ratio.min(), ratio.max()))
 
-    ratio = (kc[:, i] + eps) / (kc[:, i] + eps)
+    ratio = (kc[:, i] + eps) / (kc_rt[:, i] + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
-        print("equilibrium constants {} {} {:.2e} {:.2e}".format(
+        print("equilibrium constants {} {} {:.4e} {:.4e}".format(
             i, reaction_equation[i], ratio.min(), ratio.max()))
 
-    ratio = (kr[:, i] + eps) / (kr[:, i] + eps)
+    ratio = (kr[:, i] + eps) / (kr_rt[:, i] + eps)
 
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
-        print("reverse constants {} {} {:.2e} {:.2e}".format(
+        print("reverse constants {} {} {:.4e} {:.4e}".format(
             i, reaction_equation[i], ratio.min(), ratio.max()))
 
     return i
