@@ -277,7 +277,7 @@ class Solution(nn.Module):
         self.forward_rate_constants = torch.zeros(
             [self.T.shape[0], self.n_reactions]).to(self.device)
 
-        ln10 = torch.log(torch.Tensor([10.0]))
+        ln10 = torch.log(torch.Tensor([10.0])).to(self.device)
 
         for i in range(self.n_reactions):
             reaction = self.reaction[i]
