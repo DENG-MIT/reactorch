@@ -129,7 +129,7 @@ class Solution(nn.Module):
 
             if self.gas.reaction_type(i) in [2]:
 
-                self.is_three_body[i] = 1
+                self.is_three_body[i] = self.is_three_body[i] + 1
                 
                 if 'efficiencies' in yaml_reaction:
                 
@@ -291,7 +291,7 @@ class Solution(nn.Module):
                torch.exp(self.Arrhenius_b * torch.log(self.T) - \
                          self.Arrhenius_Ea * 4184.0 / self.R / self.T) \
                          * self.C_M2
-
+    
         for i in self.list_reaction_type4:
             reaction = self.reaction[i]
 
@@ -307,8 +307,8 @@ class Solution(nn.Module):
 
             Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
             lPr = torch.log10(Pr)
-            self.forward_rate_constants[:, i: i + 1] = \
-            self.forward_rate_constants[:, i: i + 1] * Pr / (1 + Pr)
+            
+            self.k = self.kinf * Pr / (1 + Pr)
 
             if 'Troe' in self.reaction[i]:
                    A = reaction['Troe']['A']
@@ -328,8 +328,9 @@ class Solution(nn.Module):
                    f1 = (lPr + C) / (N - 0.14 * (lPr + C))
                                       
                    F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
-                   self.forward_rate_constants[:, i: i + 1] = \
-                       self.forward_rate_constants[:, i: i + 1] * F
+                   self.k = self.k * F
+                      
+            self.forward_rate_constants[:, i: i + 1] = self.k
 
         self.forward_rate_constants = self.forward_rate_constants * self.uq_A.abs()
 
