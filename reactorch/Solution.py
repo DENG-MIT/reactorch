@@ -83,6 +83,9 @@ class Solution(nn.Module):
         self.Arrhenius_coeffs = torch.zeros([self.n_reactions, 3]).to(self.device)
 
         self.is_reversible = torch.ones([self.n_reactions]).to(self.device)
+        
+        # reaction type 2 will be set as 1
+        self.is_three_body = torch.zeros([self.n_reactions]).to(self.device)
 
         self.list_reaction_type1 = []
         self.list_reaction_type2 = []
@@ -124,9 +127,9 @@ class Solution(nn.Module):
 
                 self.reaction[i]['Ea'] = torch.Tensor(Ea).to(self.device)
 
-            if self.gas.reaction_type(i) in [2, 4]:
+            if self.gas.reaction_type(i) in [2]:
 
-                self.efficiencies_coeffs[:, i] = 1
+                self.is_three_body[i] = 1
                 
                 if 'efficiencies' in yaml_reaction:
                 
@@ -137,6 +140,14 @@ class Solution(nn.Module):
                         self.efficiencies_coeffs[self.gas.species_index(key), i] = value
 
             if self.gas.reaction_type(i) in [4]:
+                   
+                if 'efficiencies' in yaml_reaction:
+                
+                    self.reaction[i]['efficiencies'] = yaml_reaction['efficiencies']
+                
+                    for key, value in self.reaction[i]['efficiencies'].items():
+                
+                        self.efficiencies_coeffs[self.gas.species_index(key), i] = value
 
                 high_p = yaml_reaction['high-P-rate-constant']
 
@@ -250,7 +261,11 @@ class Solution(nn.Module):
         self.entropy_mole_func()
         self.entropy_mass_func()
 
+        # concentration of M in three-body reaction (type 2)
         self.C_M = torch.mm(self.C, self.efficiencies_coeffs)
+        # for batch computation
+        self.C_M2 = self.C_M * self.is_three_body + torch.ones_like(self.C_M) \
+        * (1 - self.is_three_body)
 
         self.forward_rate_constants_func()
         self.equilibrium_constants_func()
@@ -270,58 +285,51 @@ class Solution(nn.Module):
         """Update forward_rate_constants
         """
 
-        self.forward_rate_constants = torch.zeros(
-            [self.T.shape[0], self.n_reactions]).to(self.device)
-
         ln10 = torch.log(torch.Tensor([10.0])).to(self.device)
+        
+        self.forward_rate_constants = self.Arrhenius_A * \
+               torch.exp(self.Arrhenius_b * torch.log(self.T) - \
+                         self.Arrhenius_Ea * 4184.0 / self.R / self.T) \
+                         * self.C_M2
 
-        for i in range(self.n_reactions):
+        for i in self.list_reaction_type4:
             reaction = self.reaction[i]
 
-            if reaction['reaction_type'] in [1, 2, 4]:
-                self.k = reaction['A'] * \
-                    torch.exp(reaction['b'] * torch.log(self.T) \
+            # high pressure
+            self.kinf = reaction['A'] * \
+                 torch.exp(reaction['b'] * torch.log(self.T) \
                     - reaction['Ea'] * 4184.0 / self.R / self.T)
-        
-
-            if reaction['reaction_type'] in [2]:
-                self.k = self.k * self.C_M[:, i:i + 1]
-
-            if reaction['reaction_type'] in [4]:
-                self.kinf = reaction['A'] * \
-                    torch.exp(reaction['b'] * torch.log(self.T) \
-                    - reaction['Ea'] * 4184.0 / self.R / self.T)
-
-                self.k0 = self.reaction[i]['A_0'] * \
-                    torch.exp(reaction['b_0'] * torch.log(self.T) \
+                
+            # low pressure
+            self.k0 = self.reaction[i]['A_0'] * \
+                 torch.exp(reaction['b_0'] * torch.log(self.T) \
                     - reaction['Ea_0'] * 4184.0 / self.R / self.T)
 
-                Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
-                lPr = torch.log10(Pr)
+            Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
+            lPr = torch.log10(Pr)
+            self.forward_rate_constants[:, i: i + 1] = \
+            self.forward_rate_constants[:, i: i + 1] * Pr / (1 + Pr)
 
-                self.k = self.k * (Pr / (1 + Pr))
+            if 'Troe' in self.reaction[i]:
+                   A = reaction['Troe']['A']
+                   T1 = reaction['Troe']['T1']
+                   T3 = reaction['Troe']['T3']
 
-                if 'Troe' in self.reaction[i]:
-                    A = reaction['Troe']['A']
-                    T1 = reaction['Troe']['T1']
-                    T3 = reaction['Troe']['T3']
-
-                    F_cent = (1 - A) * torch.exp(-self.T / T3) + \
+                   F_cent = (1 - A) * torch.exp(-self.T / T3) + \
                         A * torch.exp(-self.T / T1)
 
-                    if 'T2' in reaction['Troe']:
+                   if 'T2' in reaction['Troe']:
                         T2 = reaction['Troe']['T2']
                         F_cent = F_cent + torch.exp(-T2 / self.T)
 
-                    lF_cent = torch.log10(F_cent)
-                    C = -0.4 - 0.67 * lF_cent
-                    N = 0.75 - 1.27 * lF_cent
-                    f1 = (lPr + C) / (N - 0.14 * (lPr + C))
-                    F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
-
-                    self.k = self.k * F
-
-            self.forward_rate_constants[:, i: i + 1] = self.k
+                   lF_cent = torch.log10(F_cent)
+                   C = -0.4 - 0.67 * lF_cent
+                   N = 0.75 - 1.27 * lF_cent
+                   f1 = (lPr + C) / (N - 0.14 * (lPr + C))
+                                      
+                   F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
+                   self.forward_rate_constants[:, i: i + 1] = \
+                       self.forward_rate_constants[:, i: i + 1] * F
 
         self.forward_rate_constants = self.forward_rate_constants * self.uq_A.abs()
 
