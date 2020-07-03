@@ -129,7 +129,7 @@ class Solution(nn.Module):
 
             if self.gas.reaction_type(i) in [2]:
 
-                self.is_three_body[i] = self.is_three_body[i] + 1
+                self.is_three_body[i] = 1
                 
                 if 'efficiencies' in yaml_reaction:
                 
@@ -197,6 +197,7 @@ class Solution(nn.Module):
 
                         self.reaction[i]['Troe'] = {'A': torch.Tensor([Troe['A']]).to(self.device),
                                                     'T1': torch.Tensor([Troe['T1']]).to(self.device),
+                                                    'T2': torch.Tensor([1e30]).to(self.device),
                                                     'T3': torch.Tensor([Troe['T3']]).to(self.device)
                                                     }
 
@@ -313,14 +314,11 @@ class Solution(nn.Module):
             if 'Troe' in self.reaction[i]:
                    A = reaction['Troe']['A']
                    T1 = reaction['Troe']['T1']
+                   T2 = reaction['Troe']['T2']
                    T3 = reaction['Troe']['T3']
 
                    F_cent = (1 - A) * torch.exp(-self.T / T3) + \
-                        A * torch.exp(-self.T / T1)
-
-                   if 'T2' in reaction['Troe']:
-                        T2 = reaction['Troe']['T2']
-                        F_cent = F_cent + torch.exp(-T2 / self.T)
+                        A * torch.exp(-self.T / T1) + torch.exp(-T2 / self.T)
 
                    lF_cent = torch.log10(F_cent)
                    C = -0.4 - 0.67 * lF_cent
