@@ -69,6 +69,8 @@ class Solution(nn.Module):
     def set_reactions(self):
 
         self.reaction = [[None]] * self.n_reactions
+        
+        self.n_rate_constants = [[None]] * self.n_reactions
 
         self.reactant_stoich_coeffs = torch.Tensor(self.gas.reactant_stoich_coeffs()).to(self.device)
 
@@ -87,10 +89,11 @@ class Solution(nn.Module):
         self.list_reaction_type1 = []
         self.list_reaction_type2 = []
         self.list_reaction_type4 = []
+        self.list_reaction_type5 = []
 
         for i in range(self.n_reactions):
 
-            # Type 1: regular reaction, 2: three-body, 4:fall-off
+            # Type 1: regular reaction, 2: three-body, 4:fall-off, 5:pressure-dependent-Arrhenius
 
             yaml_reaction = self.model_yaml['reactions'][i]
 
@@ -102,12 +105,19 @@ class Solution(nn.Module):
             if self.gas.reaction_type(i) in [1]:
                 self.list_reaction_type1.append(i)
 
+                
             if self.gas.reaction_type(i) in [2]:
                 self.list_reaction_type2.append(i)
 
+                
             if self.gas.reaction_type(i) in [4]:
                 self.list_reaction_type4.append(i)
+            
+            
+            if self.gas.reaction_type(i) in [5]:
+                self.list_reaction_type5.append(i)
 
+            
             if self.gas.is_reversible(i) is False:
                 self.is_reversible[i].fill_(0)
 
@@ -189,6 +199,45 @@ class Solution(nn.Module):
                                                     'T3': torch.Tensor([Troe['T3']]).to(self.device)
                                                     }
 
+            if self.gas.reaction_type(i) in [5]:
+                self.n_rate_constants[i] = len(self.gas.reaction(i).rates)
+                self.reaction[i]['P'] = [[None]] * self.n_rate_constants[i]
+                self.reaction[i]['A'] = [[None]] * self.n_rate_constants[i]
+                self.reaction[i]['b'] = [[None]] * self.n_rate_constants[i]
+                self.reaction[i]['Ea'] = [[None]] * self.n_rate_constants[i]
+
+                for j in range(self.n_rate_constants[i]):
+                    PP = yaml_reaction['rate-constants'][j]
+
+                    if type(PP['P']) is str:
+                        P = list(map(eval, [PP['P'].split(' ')[0]]))
+                        self.reaction[i]['P'][j] = torch.Tensor(P).to(self.device)
+                        if [PP['P'].split(' ')[1]] == ['atm'] or [PP['P'].split(' ')[1]] == ['ATM']:
+                            self.reaction[i]['P'][j] = 101325 * self.reaction[i]['P'][j]
+                        if [PP['P'].split(' ')[1]] == ['MPa']:
+                            self.reaction[i]['P'][j] = 1000000 * self.reaction[i]['P'][j]
+                    else:
+                        P = [PP['P']]
+                        self.reaction[i]['P'][j] = torch.Tensor(P).to(self.device)
+
+                    if type(PP['A']) is str:
+                        A = list(map(eval, [PP['A'].split(' ')[0]]))
+                    else:
+                        A = [PP['A']]
+                    self.reaction[i]['A'][j] = torch.Tensor(A).to(self.device)
+
+                    if type(PP['b']) is str:
+                        b = list(map(eval, [PP['b'].split(' ')[0]]))
+                    else:
+                        b = [PP['b']]
+                    self.reaction[i]['b'][j] = torch.Tensor(b).to(self.device)
+
+                    if type(PP['Ea']) is str:
+                        Ea = list(map(eval, [PP['Ea'].split(' ')[0]]))
+                    else:
+                        Ea = [PP['Ea']]
+                    self.reaction[i]['Ea'][j] = torch.Tensor(Ea).to(self.device)
+                    
             if 'orders' in yaml_reaction:
 
                 for key, value in yaml_reaction['orders'].items():
@@ -198,7 +247,8 @@ class Solution(nn.Module):
             if 'units' in self.model_yaml:
 
                 if self.model_yaml['units']['length'] == 'cm' and self.model_yaml['units']['quantity'] == 'mol':
-                    self.reaction[i]['A'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                    if self.gas.reaction_type(i) in [1, 2, 4]:
+                        self.reaction[i]['A'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
                     if self.gas.reaction_type(i) in [2]:
                         self.reaction[i]['A'] *= 1e-3
@@ -206,10 +256,21 @@ class Solution(nn.Module):
                     if self.gas.reaction_type(i) in [4]:
                         self.reaction[i]['A_0'] *= 1e-3
                         self.reaction[i]['A_0'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                    
+                    if self.gas.reaction_type(i) in [5]:
+                        for j in range(self.n_rate_constants[i]):
+                            self.reaction[i]['A'][j] *= 1e-3
+                            self.reaction[i]['A'][j] *= 1e-3 ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
-            self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
-            self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b']
-            self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea']
+            if self.gas.reaction_type(i) in [1, 2, 4]:
+                self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
+                self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b']
+                self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea']
+            
+            if self.gas.reaction_type(i) in [5]:
+                self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A'][0]
+                self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b'][0]
+                self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea'][0]
 
         self.Arrhenius_A = self.Arrhenius_coeffs[:, 0]
         self.Arrhenius_b = self.Arrhenius_coeffs[:, 1]
@@ -287,6 +348,7 @@ class Solution(nn.Module):
             if reaction['reaction_type'] in [2]:
                 self.k = self.k * self.C_M[:, i:i + 1]
 
+                
             if reaction['reaction_type'] in [4]:
                 self.kinf = reaction['A'] * \
                     torch.exp(reaction['b'] * torch.log(self.T) \
@@ -320,7 +382,87 @@ class Solution(nn.Module):
                     F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
 
                     self.k = self.k * F
+                    
+                    
+            if reaction['reaction_type'] in [5]:
 
+                self.kk = [[None]] * self.n_rate_constants[i]
+
+                # calculate rate expressions at all given pressures
+                for j in range(self.n_rate_constants[i]):
+                    self.kk[j] = reaction['A'][j] * \
+                    torch.exp(reaction['b'][j] * torch.log(self.T) \
+                    - reaction['Ea'][j] * 4184.0 / self.R / self.T)
+
+                # jhigh1 corresponds to the first Arrhenius expression given at the minumum pressure
+                # higher than actual pressure. Considering multiple rate expressions may be given
+                # at the same pressure, we need jhigh2, which corresponds to the last Arrhenius
+                # expression given at the minumum pressure higher than actual pressure.
+                jhigh1 = self.n_rate_constants[i]
+                for j in range(self.n_rate_constants[i]):
+                    if self.P[0] <= reaction['P'][j]:
+                        jhigh1 = j
+                        break
+
+                if jhigh1 != self.n_rate_constants[i]:
+                    for j in range(self.n_rate_constants[i]-1, -1, -1):
+                        if reaction['P'][j] == reaction['P'][jhigh1]:
+                            jhigh2 = j
+                            break
+
+                # jlow1 corresponds to the last Arrhenius expression given at the maximum pressure
+                # lower than actual pressure while jlow2 corresponds to the first.
+                jlow1 = -1
+                for j in range(self.n_rate_constants[i]-1, -1, -1):
+                    if self.P[0] >= reaction['P'][j]:
+                        jlow1 = j
+                        break
+
+                if jlow1 != -1:
+                    for j in range(self.n_rate_constants[i]):
+                        if reaction['P'][j] == reaction['P'][jlow1]:
+                            jlow2 = j
+                            break
+
+                # This is the case where the actual pressure is higher than all given pressures.
+                if jhigh1 == self.n_rate_constants[i]:
+                    for j in range(self.n_rate_constants[i]):
+                        if reaction['P'][j] == reaction['P'][jhigh1 - 1]:
+                            jhigh2 = j
+                            break
+                    self.k = self.kk[jhigh1 - 1]
+                    if jhigh2 != jhigh1-1:
+                        for j in range(jhigh2, jhigh1-1):
+                            self.k = self.k + self.kk[j]
+
+                # This is the case where the actual pressure is lower than all given pressures.
+                if jlow1 == -1:
+                    for j in range(self.n_rate_constants[i]-1, -1, -1):
+                        if reaction['P'][j] == reaction['P'][0]:
+                            jlow2 = j
+                            break
+                    self.k = self.kk[0]
+                    if jlow2 != 0:
+                        for j in range(1, jlow2+1):
+                            self.k = self.k + self.kk[j]
+
+                # This is the case where the actual pressure is higher than the minimum
+                # given pressure and lower than the maximum given pressure.
+                if jhigh1 != self.n_rate_constants[i] and jlow1 != -1:
+                    self.k1 = self.kk[jlow1]
+                    self.k2 = self.kk[jhigh1]
+                    if jhigh1 != jhigh2:
+                        for j in range(jhigh1+1, jhigh2+1):
+                            self.k2 = self.k2 + self.kk[j]
+                    if jlow1 != jlow2:
+                        for j in range(jlow2, jlow1):
+                            self.k1 = self.k1 + self.kk[j]
+                    logk = torch.log(self.k1) + (torch.log(self.k2)-torch.log(self.k1)) \
+                           * (torch.log(self.P[0])-torch.log(reaction['P'][jlow1])) / \
+                           (torch.log(reaction['P'][jhigh1])-torch.log(reaction['P'][jlow1]))
+                    self.k = torch.exp(logk)
+
+            
             self.forward_rate_constants[:, i: i + 1] = self.k
 
         self.forward_rate_constants = self.forward_rate_constants * self.uq_A.abs()
