@@ -18,13 +18,16 @@ torch.set_default_tensor_type("torch.DoubleTensor")
 
 
 class Solution(nn.Module):
-    def __init__(self, mech_yaml=None, device=None):
+    def __init__(self, mech_yaml=None, device=None,vectorize=False):
         super(Solution, self).__init__()
 
         if device is None:
             self.device = torch.device('cpu')
         else:
             self.device = device
+            
+        # whether the computation of reaction rate of type4 will be vectorized
+        self.vectorize = vectorize
 
         self.gas = ct.Solution(mech_yaml)
 
@@ -246,58 +249,59 @@ class Solution(nn.Module):
         self.Arrhenius_b = self.Arrhenius_coeffs[:, 1]
         self.Arrhenius_Ea = self.Arrhenius_coeffs[:, 2]
         
-        # for falloff and Troe
-        self.length_type4 = len(self.list_reaction_type4)
-        self.Arrhenius_A0 = torch.zeros([self.length_type4]).to(self.device)
-        self.Arrhenius_b0 = torch.zeros([self.length_type4]).to(self.device)
-        self.Arrhenius_Ea0 = torch.zeros([self.length_type4]).to(self.device)
         
-        self.Arrhenius_Ainf = torch.zeros([self.length_type4]).to(self.device)
-        self.Arrhenius_binf = torch.zeros([self.length_type4]).to(self.device)
-        self.Arrhenius_Eainf = torch.zeros([self.length_type4]).to(self.device)
-        
-        self.efficiencies_coeffs_type4 = torch.ones([self.n_species,self.length_type4]).to(self.device)
-        
-        self.length_type4_Troe = len(self.list_reaction_type4_Troe)
-        self.Troe_A = torch.zeros([self.length_type4_Troe]).to(self.device)
-        self.Troe_T1 = torch.zeros([self.length_type4_Troe]).to(self.device)
-        self.Troe_T2 = torch.zeros([self.length_type4_Troe]).to(self.device)
-        self.Troe_T3 = torch.zeros([self.length_type4_Troe]).to(self.device)  
-        
-        # for matrix size transfer
-        self.mat_transfer_type4 = torch.zeros([self.length_type4,self.n_reactions])
-        self.mat_transfer_type4_Troe = torch.zeros([self.length_type4_Troe,self.n_reactions])
-        self.mat_transfer_type4_to_Troe = torch.zeros(self.length_type4,self.length_type4_Troe)
-        
-        
-        
-        for i in range(self.length_type4):
-            index = self.list_reaction_type4[i]
+        if self.vectorize==True:
+            # for falloff and Troe
+            self.length_type4 = len(self.list_reaction_type4)
+            self.Arrhenius_A0 = torch.zeros([self.length_type4]).to(self.device)
+            self.Arrhenius_b0 = torch.zeros([self.length_type4]).to(self.device)
+            self.Arrhenius_Ea0 = torch.zeros([self.length_type4]).to(self.device)
             
-            self.Arrhenius_A0[i] = self.reaction[index]['A_0']
-            self.Arrhenius_b0[i] = self.reaction[index]['b_0']
-            self.Arrhenius_Ea0[i] = self.reaction[index]['Ea_0']
+            self.Arrhenius_Ainf = torch.zeros([self.length_type4]).to(self.device)
+            self.Arrhenius_binf = torch.zeros([self.length_type4]).to(self.device)
+            self.Arrhenius_Eainf = torch.zeros([self.length_type4]).to(self.device)
             
-            self.Arrhenius_Ainf[i] = self.reaction[index]['A']
-            self.Arrhenius_binf[i] = self.reaction[index]['b']
-            self.Arrhenius_Eainf[i] = self.reaction[index]['Ea']
+            self.efficiencies_coeffs_type4 = torch.ones([self.n_species,self.length_type4]).to(self.device)
             
-            self.efficiencies_coeffs_type4[:,i] = self.efficiencies_coeffs[:,index]
+            self.length_type4_Troe = len(self.list_reaction_type4_Troe)
+            self.Troe_A = torch.zeros([self.length_type4_Troe]).to(self.device)
+            self.Troe_T1 = torch.zeros([self.length_type4_Troe]).to(self.device)
+            self.Troe_T2 = torch.zeros([self.length_type4_Troe]).to(self.device)
+            self.Troe_T3 = torch.zeros([self.length_type4_Troe]).to(self.device)  
             
-            self.mat_transfer_type4[i,index] = 1
+            # for matrix size transfer
+            self.mat_transfer_type4 = torch.zeros([self.length_type4,self.n_reactions])
+            self.mat_transfer_type4_Troe = torch.zeros([self.length_type4_Troe,self.n_reactions])
+            self.mat_transfer_type4_to_Troe = torch.zeros(self.length_type4,self.length_type4_Troe)
+    
         
-        for i in range(self.length_type4_Troe):
-            index = self.list_reaction_type4_Troe[i]
+            for i in range(self.length_type4):
+                index = self.list_reaction_type4[i]
+                
+                self.Arrhenius_A0[i] = self.reaction[index]['A_0']
+                self.Arrhenius_b0[i] = self.reaction[index]['b_0']
+                self.Arrhenius_Ea0[i] = self.reaction[index]['Ea_0']
+                
+                self.Arrhenius_Ainf[i] = self.reaction[index]['A']
+                self.Arrhenius_binf[i] = self.reaction[index]['b']
+                self.Arrhenius_Eainf[i] = self.reaction[index]['Ea']
+                
+                self.efficiencies_coeffs_type4[:,i] = self.efficiencies_coeffs[:,index]
+                
+                self.mat_transfer_type4[i,index] = 1
             
-            self.Troe_A[i] = self.reaction[index]['Troe']['A']
-            self.Troe_T1[i] = self.reaction[index]['Troe']['T1']
-            self.Troe_T2[i] = self.reaction[index]['Troe']['T2']
-            self.Troe_T3[i] = self.reaction[index]['Troe']['T3']
-            
-            self.mat_transfer_type4_Troe[i,index] = 1
-            
-            index_in_type4 = self.list_id_Troe_in_type4[i]
-            self.mat_transfer_type4_to_Troe[index_in_type4,i] = 1
+            for i in range(self.length_type4_Troe):
+                index = self.list_reaction_type4_Troe[i]
+                
+                self.Troe_A[i] = self.reaction[index]['Troe']['A']
+                self.Troe_T1[i] = self.reaction[index]['Troe']['T1']
+                self.Troe_T2[i] = self.reaction[index]['Troe']['T2']
+                self.Troe_T3[i] = self.reaction[index]['Troe']['T3']
+                
+                self.mat_transfer_type4_Troe[i,index] = 1
+                
+                index_in_type4 = self.list_id_Troe_in_type4[i]
+                self.mat_transfer_type4_to_Troe[index_in_type4,i] = 1
 
     def set_pressure(self, P):
         self.P_ref = torch.Tensor([P]).to(self.device)
@@ -342,10 +346,13 @@ class Solution(nn.Module):
         self.C_M2 = self.C_M * self.is_three_body + self.identity_mat \
         * (1 - self.is_three_body)
         
-        # for type 4
-        self.C_M_type4 = torch.mm(self.C,self.efficiencies_coeffs_type4)
-
-        self.forward_rate_constants_func()
+        if self.vectorize==True:
+            # for type 4
+            self.C_M_type4 = torch.mm(self.C,self.efficiencies_coeffs_type4)
+            self.forward_rate_constants_func_vec()
+        else:
+            self.forward_rate_constants_func()
+            
         self.equilibrium_constants_func()
         self.reverse_rate_constants_func()
 
@@ -360,6 +367,56 @@ class Solution(nn.Module):
         self.binary_diff_coeffs_func()                    
 
     def forward_rate_constants_func(self):
+        """Update forward_rate_constants
+        """
+
+        ln10 = torch.log(torch.Tensor([10.0])).to(self.device)
+        
+        self.forward_rate_constants = self.Arrhenius_A * \
+               torch.exp(self.Arrhenius_b * torch.log(self.T) - \
+                         self.Arrhenius_Ea * 4184.0 / self.R / self.T) \
+                         * self.C_M2
+    
+        for i in self.list_reaction_type4:
+            reaction = self.reaction[i]
+
+            # high pressure
+            self.kinf = reaction['A'] * \
+                 torch.exp(reaction['b'] * torch.log(self.T) \
+                    - reaction['Ea'] * 4184.0 / self.R / self.T)
+                
+            # low pressure
+            self.k0 = self.reaction[i]['A_0'] * \
+                 torch.exp(reaction['b_0'] * torch.log(self.T) \
+                    - reaction['Ea_0'] * 4184.0 / self.R / self.T)
+
+            Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
+            lPr = torch.log10(Pr)
+            
+            self.k = self.kinf * Pr / (1 + Pr)
+
+            if 'Troe' in self.reaction[i]:
+                   A = reaction['Troe']['A']
+                   T1 = reaction['Troe']['T1']
+                   T2 = reaction['Troe']['T2']
+                   T3 = reaction['Troe']['T3']
+
+                   F_cent = (1 - A) * torch.exp(-self.T / T3) + \
+                        A * torch.exp(-self.T / T1) + torch.exp(-T2 / self.T)
+
+                   lF_cent = torch.log10(F_cent)
+                   C = -0.4 - 0.67 * lF_cent
+                   N = 0.75 - 1.27 * lF_cent
+                   f1 = (lPr + C) / (N - 0.14 * (lPr + C))
+                                      
+                   F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
+                   self.k = self.k * F
+                      
+            self.forward_rate_constants[:, i: i + 1] = self.k
+
+        self.forward_rate_constants = self.forward_rate_constants * self.uq_A.abs()
+
+    def forward_rate_constants_func_vec(self):
         """Update forward_rate_constants
         """
 
