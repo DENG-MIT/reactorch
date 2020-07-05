@@ -12,6 +12,21 @@ def set_nasa(self):
         self.nasa_high[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][1])
 
 
+def set_transport(self,
+                  species_viscosities_poly,
+                  thermal_conductivity_poly,
+                  binary_diff_coeffs_poly):
+    # Transport Properties
+
+    self.species_viscosities_poly = torch.from_numpy(species_viscosities_poly).to(self.device)
+
+    self.thermal_conductivity_poly = torch.from_numpy(thermal_conductivity_poly).to(self.device)
+
+    self.binary_diff_coeffs_poly = torch.from_numpy(binary_diff_coeffs_poly).to(self.device)
+
+    self.poly_order = self.species_viscosities_poly.shape[0]
+
+
 def set_reactions(self):
     self.reaction = [[None]] * self.n_reactions
 

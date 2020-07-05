@@ -205,7 +205,7 @@ def equilibrium_constants_func(self):
     delta_H_over_RT = torch.mm(self.H, vk) / self.R / self.T
 
     self.equilibrium_constants = (torch.exp(
-        delta_S_over_R - delta_H_over_RT + torch.log(self.P_atm / self.R / self.T) * vk.sum(dim=0)))
+        delta_S_over_R - delta_H_over_RT + torch.log(self.one_atm / self.R / self.T) * vk.sum(dim=0)))
 
 
 def reverse_rate_constants_func(self):
