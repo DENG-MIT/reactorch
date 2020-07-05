@@ -201,42 +201,49 @@ class Solution(nn.Module):
 
             if self.gas.reaction_type(i) in [5]:
                 self.n_rate_constants[i] = len(self.gas.reaction(i).rates)
+                self.reaction[i]['p_dep'] = {}
+                self.reaction[i]['p_dep']['A'] = [[None]] * self.n_rate_constants[i]
                 self.reaction[i]['P'] = [[None]] * self.n_rate_constants[i]
-                self.reaction[i]['A'] = [[None]] * self.n_rate_constants[i]
                 self.reaction[i]['b'] = [[None]] * self.n_rate_constants[i]
                 self.reaction[i]['Ea'] = [[None]] * self.n_rate_constants[i]
 
                 for j in range(self.n_rate_constants[i]):
-                    PP = yaml_reaction['rate-constants'][j]
+                    pdep_arrhenius = yaml_reaction['rate-constants'][j]
 
-                    if type(PP['P']) is str:
-                        P = list(map(eval, [PP['P'].split(' ')[0]]))
+                    if type(pdep_arrhenius['P']) is str:
+                        P = list(map(eval, [pdep_arrhenius['P'].split(' ')[0]]))
                         self.reaction[i]['P'][j] = torch.Tensor(P).to(self.device)
-                        if [PP['P'].split(' ')[1]] == ['atm'] or [PP['P'].split(' ')[1]] == ['ATM']:
+                        if [pdep_arrhenius['P'].split(' ')[1]] == ['atm'] or [pdep_arrhenius['P'].split(' ')[1]] == ['ATM']:
                             self.reaction[i]['P'][j] = 101325 * self.reaction[i]['P'][j]
-                        if [PP['P'].split(' ')[1]] == ['MPa']:
+                        if [pdep_arrhenius['P'].split(' ')[1]] == ['MPa']:
                             self.reaction[i]['P'][j] = 1000000 * self.reaction[i]['P'][j]
                     else:
-                        P = [PP['P']]
+                        P = [pdep_arrhenius['P']]
                         self.reaction[i]['P'][j] = torch.Tensor(P).to(self.device)
 
-                    if type(PP['A']) is str:
-                        A = list(map(eval, [PP['A'].split(' ')[0]]))
+                    if type(pdep_arrhenius['A']) is str:
+                        A = list(map(eval, [pdep_arrhenius['A'].split(' ')[0]]))
                     else:
-                        A = [PP['A']]
-                    self.reaction[i]['A'][j] = torch.Tensor(A).to(self.device)
+                        A = [pdep_arrhenius['A']]
+                    self.reaction[i]['p_dep']['A'][j] = torch.Tensor(A).to(self.device)
 
-                    if type(PP['b']) is str:
-                        b = list(map(eval, [PP['b'].split(' ')[0]]))
+                    if type(pdep_arrhenius['b']) is str:
+                        b = list(map(eval, [pdep_arrhenius['b'].split(' ')[0]]))
                     else:
-                        b = [PP['b']]
+                        b = [pdep_arrhenius['b']]
                     self.reaction[i]['b'][j] = torch.Tensor(b).to(self.device)
 
-                    if type(PP['Ea']) is str:
-                        Ea = list(map(eval, [PP['Ea'].split(' ')[0]]))
+                    if type(pdep_arrhenius['Ea']) is str:
+                        Ea = list(map(eval, [pdep_arrhenius['Ea'].split(' ')[0]]))
                     else:
-                        Ea = [PP['Ea']]
+                        Ea = [pdep_arrhenius['Ea']]
                     self.reaction[i]['Ea'][j] = torch.Tensor(Ea).to(self.device)
+
+                if type(pdep_arrhenius['A']) is str:
+                    A = list(map(eval, [pdep_arrhenius['A'].split(' ')[0]]))
+                else:
+                    A = [pdep_arrhenius['A']]
+                self.reaction[i]['A'] = torch.Tensor(A).to(self.device)
                     
             if 'orders' in yaml_reaction:
 
@@ -259,16 +266,16 @@ class Solution(nn.Module):
                     
                     if self.gas.reaction_type(i) in [5]:
                         for j in range(self.n_rate_constants[i]):
-                            self.reaction[i]['A'][j] *= 1e-3
-                            self.reaction[i]['A'][j] *= 1e-3 ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
-
+                            #self.reaction[i]['p_dep']['A'][j] *= 1e-3
+                            self.reaction[i]['p_dep']['A'][j] *= 1e-3 ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                            
             if self.gas.reaction_type(i) in [1, 2, 4]:
                 self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
                 self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b']
                 self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea']
             
             if self.gas.reaction_type(i) in [5]:
-                self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A'][0]
+                self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
                 self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b'][0]
                 self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea'][0]
 
@@ -390,7 +397,7 @@ class Solution(nn.Module):
 
                 # calculate rate expressions at all given pressures
                 for j in range(self.n_rate_constants[i]):
-                    self.kk[j] = reaction['A'][j] * \
+                    self.kk[j] = reaction['p_dep']['A'][j] * \
                     torch.exp(reaction['b'][j] * torch.log(self.T) \
                     - reaction['Ea'][j] * 4184.0 / self.R / self.T)
 
