@@ -187,7 +187,7 @@ def forward_rate_constants_func_vec(self):
                         (1 - self.is_Troe_falloff) * self.identity_mat)
 
     self.forward_rate_constants = (
-            self.forward_rate_constants * self.Troe_matrix * self.falloff_matrix)
+        self.forward_rate_constants * self.Troe_matrix * self.falloff_matrix)
 
     # for uncertainty quantification
     self.forward_rate_constants = self.forward_rate_constants * self.uq_A.abs()
@@ -210,17 +210,17 @@ def equilibrium_constants_func(self):
 
 def reverse_rate_constants_func(self):
     self.reverse_rate_constants = (
-            self.forward_rate_constants / self.equilibrium_constants * self.is_reversible)
+        self.forward_rate_constants / self.equilibrium_constants * self.is_reversible)
 
 
 def wdot_func(self):
     eps = 1e-300
 
     self.forward_rates_of_progress = self.forward_rate_constants * \
-                                     torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
+        torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
 
     self.reverse_rates_of_progress = self.reverse_rate_constants * \
-                                     torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs))
+        torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs))
 
     self.qdot = self.forward_rates_of_progress - self.reverse_rates_of_progress
 

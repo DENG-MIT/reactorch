@@ -264,7 +264,7 @@ def set_reactions(self):
 
                 if self.gas.reaction_type(i) in [1, 2, 4]:
                     self.reaction[i]['A'] *= 1e-3 ** (
-                            self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                        self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
                 if self.gas.reaction_type(i) in [2]:
                     self.reaction[i]['A'] *= 1e-3
@@ -273,13 +273,13 @@ def set_reactions(self):
                     self.reaction[i]['A_0'] *= 1e-3
 
                     self.reaction[i]['A_0'] *= 1e-3 ** (
-                            self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                        self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
                 if self.gas.reaction_type(i) in [5]:
 
                     for j in range(self.n_rate_constants[i]):
                         self.reaction[i]['p_dep']['A'][j] *= 1e-3 ** (
-                                self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                            self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
         if self.gas.reaction_type(i) in [1, 2, 4]:
             self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']

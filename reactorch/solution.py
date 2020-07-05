@@ -167,8 +167,8 @@ class Solution(nn.Module):
         self.species_thermal_conductivity = torch.mm(self.trans_T, self.thermal_conductivity_poly)
 
         self.thermal_conductivity = 0.5 * (
-                (self.X.clone() * self.species_thermal_conductivity).sum(dim=1, keepdim=True) +
-                1 / (self.X.clone() / self.species_thermal_conductivity).sum(dim=1, keepdim=True)
+            (self.X.clone() * self.species_thermal_conductivity).sum(dim=1, keepdim=True) +
+            1 / (self.X.clone() / self.species_thermal_conductivity).sum(dim=1, keepdim=True)
         )
 
     def binary_diff_coeffs_func(self):
@@ -242,8 +242,8 @@ class Solution(nn.Module):
                               self.T ** 3 / 3, self.T ** 4 / 4, self.T ** 0), dim=1)
 
         self.S0 = (
-                torch.mm(self.S_T, self.nasa_low[:, [0, 1, 2, 3, 4, 6]].T) * (self.T <= 1000).int() +
-                torch.mm(self.S_T, self.nasa_high[:, [0, 1, 2, 3, 4, 6]].T) * (self.T > 1000).int())
+            torch.mm(self.S_T, self.nasa_low[:, [0, 1, 2, 3, 4, 6]].T) * (self.T <= 1000).int() +
+            torch.mm(self.S_T, self.nasa_high[:, [0, 1, 2, 3, 4, 6]].T) * (self.T > 1000).int())
 
         self.S0 = self.S0 * self.R
 
