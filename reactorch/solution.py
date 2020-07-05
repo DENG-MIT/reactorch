@@ -19,15 +19,15 @@ torch.set_default_tensor_type("torch.DoubleTensor")
 
 class Solution(nn.Module):
     
-    from import_kinetics import set_nasa
-    from import_kinetics import set_reactions
+    from .import_kinetics import set_nasa
+    from .import_kinetics import set_reactions
     
-    from kinetics import forward_rate_constants_func
-    from kinetics import forward_rate_constants_func_vec
-    from kinetics import forward_rate_constants_func_matrix
-    from kinetics import equilibrium_constants_func
-    from kinetics import reverse_rate_constants_func
-    from kinetics import wdot_func
+    from .kinetics import forward_rate_constants_func
+    from .kinetics import forward_rate_constants_func_vec
+    from .kinetics import forward_rate_constants_func_matrix
+    from .kinetics import equilibrium_constants_func
+    from .kinetics import reverse_rate_constants_func
+    from .kinetics import wdot_func
     
     def __init__(self, mech_yaml=None, device=None,vectorize=False):
         super(Solution, self).__init__()
