@@ -58,7 +58,6 @@ def forward_rate_constants_func(self):
 
         # calculate rate expressions at all given pressures
         for j in range(self.n_rate_constants[i]):
-
             self.kk[j] = (reaction['p_dep']['A'][j] *
                           torch.exp(reaction['b'][j] * torch.log(self.T)
                                     - reaction['Ea'][j] * 4184.0 / self.R / self.T))
@@ -188,21 +187,19 @@ def forward_rate_constants_func_vec(self):
                         (1 - self.is_Troe_falloff) * self.identity_mat)
 
     self.forward_rate_constants = (
-        self.forward_rate_constants * self.Troe_matrix * self.falloff_matrix)
+            self.forward_rate_constants * self.Troe_matrix * self.falloff_matrix)
 
     # for uncertainty quantification
     self.forward_rate_constants = self.forward_rate_constants * self.uq_A.abs()
 
 
 def forward_rate_constants_func_matrix(self):
-
     self.kf = (self.Arrhenius_A *
                torch.exp(self.Arrhenius_b * torch.log(self.T) -
                          self.Arrhenius_Ea * 4184.0 / self.R / self.T))
 
 
 def equilibrium_constants_func(self):
-
     vk = (-self.reactant_stoich_coeffs + self.product_stoich_coeffs)
     delta_S_over_R = torch.mm(self.S0, vk) / self.R
     delta_H_over_RT = torch.mm(self.H, vk) / self.R / self.T
@@ -212,20 +209,18 @@ def equilibrium_constants_func(self):
 
 
 def reverse_rate_constants_func(self):
-
     self.reverse_rate_constants = (
-        self.forward_rate_constants / self.equilibrium_constants * self.is_reversible)
+            self.forward_rate_constants / self.equilibrium_constants * self.is_reversible)
 
 
 def wdot_func(self):
-
     eps = 1e-300
 
     self.forward_rates_of_progress = self.forward_rate_constants * \
-        torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
+                                     torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
 
     self.reverse_rates_of_progress = self.reverse_rate_constants * \
-        torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs))
+                                     torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs))
 
     self.qdot = self.forward_rates_of_progress - self.reverse_rates_of_progress
 

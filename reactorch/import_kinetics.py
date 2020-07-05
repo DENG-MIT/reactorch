@@ -2,20 +2,17 @@ import torch
 
 
 def set_nasa(self):
-
     self.nasa_low = torch.zeros([self.n_species, 7]).to(self.device)
 
     self.nasa_high = torch.zeros([self.n_species, 7]).to(self.device)
 
     for i in range(self.n_species):
-
         self.nasa_low[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][0])
 
         self.nasa_high[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][1])
 
 
 def set_reactions(self):
-
     self.reaction = [[None]] * self.n_reactions
 
     self.n_rate_constants = [[None]] * self.n_reactions
@@ -108,7 +105,6 @@ def set_reactions(self):
                 self.reaction[i]['efficiencies'] = yaml_reaction['efficiencies']
 
                 for key, value in self.reaction[i]['efficiencies'].items():
-
                     self.efficiencies_coeffs[self.gas.species_index(key), i] = value
 
         if self.gas.reaction_type(i) in [4]:
@@ -120,7 +116,6 @@ def set_reactions(self):
                 self.reaction[i]['efficiencies'] = yaml_reaction['efficiencies']
 
                 for key, value in self.reaction[i]['efficiencies'].items():
-
                     self.efficiencies_coeffs[self.gas.species_index(key), i] = value
 
             high_p = yaml_reaction['high-P-rate-constant']
@@ -206,11 +201,9 @@ def set_reactions(self):
 
                     if ([pdep_arrhenius['P'].split(' ')[1]] == ['atm'] or
                             [pdep_arrhenius['P'].split(' ')[1]] == ['ATM']):
-
                         self.reaction[i]['P'][j] = 101325 * self.reaction[i]['P'][j]
 
                     if [pdep_arrhenius['P'].split(' ')[1]] == ['MPa']:
-
                         self.reaction[i]['P'][j] = 1000000 * self.reaction[i]['P'][j]
 
                 else:
@@ -262,7 +255,6 @@ def set_reactions(self):
         if 'orders' in yaml_reaction:
 
             for key, value in yaml_reaction['orders'].items():
-
                 self.reactant_orders[self.gas.species_index(key), i] = value
 
         if 'units' in self.model_yaml:
@@ -271,36 +263,30 @@ def set_reactions(self):
                     self.model_yaml['units']['quantity'] == 'mol'):
 
                 if self.gas.reaction_type(i) in [1, 2, 4]:
-
                     self.reaction[i]['A'] *= 1e-3 ** (
-                        self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                            self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
                 if self.gas.reaction_type(i) in [2]:
-
                     self.reaction[i]['A'] *= 1e-3
 
                 if self.gas.reaction_type(i) in [4]:
-
                     self.reaction[i]['A_0'] *= 1e-3
 
                     self.reaction[i]['A_0'] *= 1e-3 ** (
-                        self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                            self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
                 if self.gas.reaction_type(i) in [5]:
 
                     for j in range(self.n_rate_constants[i]):
-
                         self.reaction[i]['p_dep']['A'][j] *= 1e-3 ** (
-                            self.reactant_stoich_coeffs[:, i].sum().item() - 1)
+                                self.reactant_stoich_coeffs[:, i].sum().item() - 1)
 
         if self.gas.reaction_type(i) in [1, 2, 4]:
-
             self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
             self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b']
             self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea']
 
         if self.gas.reaction_type(i) in [5]:
-
             self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
             self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b'][0]
             self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea'][0]
@@ -337,7 +323,6 @@ def set_reactions(self):
         self.mat_transfer_type4_to_Troe = torch.zeros(self.length_type4, self.length_type4_Troe)
 
         for i in range(self.length_type4):
-
             index = self.list_reaction_type4[i]
 
             self.Arrhenius_A0[i] = self.reaction[index]['A_0']
@@ -353,7 +338,6 @@ def set_reactions(self):
             self.mat_transfer_type4[i, index] = 1
 
         for i in range(self.length_type4_Troe):
-
             index = self.list_reaction_type4_Troe[i]
 
             self.Troe_A[i] = self.reaction[index]['Troe']['A']
