@@ -15,10 +15,11 @@ python setup.py install
 
 ## Requirements
 
-* PyTorch >= 1.5
-* Cantera >= 2.5
+* PyTorch
+* Cantera >= 2.5.0
+* ruamel.yaml
 
-Detailed instructions on installing the dependent packages can be found in the [wiki page](https://github.com/DENG-MIT/reactorch/wiki/Installation). Some modules might not work with older versions of PyTorch and Cantera. But you stil can have a try with older versions to see if it is enough for you.
+Detailed instructions on installing the dependent packages can be found in the [wiki page](https://github.com/DENG-MIT/reactorch/wiki/Installation).
 
 ## Usage
 
