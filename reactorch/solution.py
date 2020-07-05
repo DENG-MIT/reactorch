@@ -9,7 +9,6 @@ __email__ = "weiqiji@mit.edu"
 __status__ = "Development"
 
 import cantera as ct
-#import numpy as np
 import torch
 from torch import nn
 from ruamel.yaml import YAML
@@ -18,25 +17,25 @@ torch.set_default_tensor_type("torch.DoubleTensor")
 
 
 class Solution(nn.Module):
-    
+
     from .import_kinetics import set_nasa
     from .import_kinetics import set_reactions
-    
+
     from .kinetics import forward_rate_constants_func
     from .kinetics import forward_rate_constants_func_vec
     from .kinetics import forward_rate_constants_func_matrix
     from .kinetics import equilibrium_constants_func
     from .kinetics import reverse_rate_constants_func
     from .kinetics import wdot_func
-    
-    def __init__(self, mech_yaml=None, device=None,vectorize=False):
+
+    def __init__(self, mech_yaml=None, device=None, vectorize=False):
         super(Solution, self).__init__()
 
         if device is None:
             self.device = torch.device('cpu')
         else:
             self.device = device
-            
+
         # whether the computation of reaction rate of type4 will be vectorized
         self.vectorize = vectorize
 
@@ -50,11 +49,9 @@ class Solution(nn.Module):
 
         self.n_reactions = self.gas.n_reactions
 
-        self.uq_A = nn.Parameter(torch.Tensor(
-            self.n_reactions).fill_(1.0).to(self.device))
+        self.uq_A = nn.Parameter(torch.Tensor(self.n_reactions).fill_(1.0).to(self.device))
 
-        self.molecular_weights = torch.Tensor(
-            [self.gas.molecular_weights]).T.to(self.device)
+        self.molecular_weights = torch.Tensor([self.gas.molecular_weights]).T.to(self.device)
 
         with open(mech_yaml, 'r') as stream:
 
@@ -78,10 +75,12 @@ class Solution(nn.Module):
         self.logT = torch.log(self.T)
 
         if TPY.shape[1] == self.n_species + 2:
+
             self.P = TPY[:, 1:2]
             self.Y = torch.clamp(TPY[:, 2:], min=0, max=None)
 
         if TPY.shape[1] == self.n_species + 1:
+
             self.P = torch.ones_like(self.T) * self.P_ref
             self.Y = torch.clamp(TPY[:, 1:], min=0.0, max=None)
 
@@ -102,22 +101,25 @@ class Solution(nn.Module):
 
         self.entropy_mole_func()
         self.entropy_mass_func()
-         
+
         # concentration of M in three-body reaction (type 2)
         self.C_M = torch.mm(self.C, self.efficiencies_coeffs)
-        
+
         self.identity_mat = torch.ones_like(self.C_M)
+
         # for batch computation
-        self.C_M2 = self.C_M * self.is_three_body + self.identity_mat \
-        * (1 - self.is_three_body)
-        
-        if self.vectorize==True:
+        self.C_M2 = (self.C_M * self.is_three_body +
+                     self.identity_mat * (1 - self.is_three_body))
+
+        if self.vectorize is True:
             # for type 4
-            self.C_M_type4 = torch.mm(self.C,self.efficiencies_coeffs_type4)
+            self.C_M_type4 = torch.mm(self.C, self.efficiencies_coeffs_type4)
             self.forward_rate_constants_func_vec()
+
         else:
+
             self.forward_rate_constants_func()
-            
+
         self.equilibrium_constants_func()
         self.reverse_rate_constants_func()
 
@@ -129,26 +131,23 @@ class Solution(nn.Module):
 
         self.thermal_conductivity_func()
 
-        self.binary_diff_coeffs_func()                    
+        self.binary_diff_coeffs_func()
 
-    def set_transport(self, species_viscosities_poly, thermal_conductivity_poly, binary_diff_coeffs_poly):
+    def set_transport(self, species_viscosities_poly, thermal_conductivity_poly,
+                      binary_diff_coeffs_poly):
         # Transport Properties
 
-        self.species_viscosities_poly = torch.from_numpy(
-            species_viscosities_poly).to(self.device)
+        self.species_viscosities_poly = torch.from_numpy(species_viscosities_poly).to(self.device)
 
-        self.thermal_conductivity_poly = torch.from_numpy(
-            thermal_conductivity_poly).to(self.device)
+        self.thermal_conductivity_poly = torch.from_numpy(thermal_conductivity_poly).to(self.device)
 
-        self.binary_diff_coeffs_poly = torch.from_numpy(
-            binary_diff_coeffs_poly).to(self.device)
+        self.binary_diff_coeffs_poly = torch.from_numpy(binary_diff_coeffs_poly).to(self.device)
 
         self.poly_order = self.species_viscosities_poly.shape[0]
 
     def viscosities_func(self):
 
-        self.trans_T = torch.cat(
-            [self.logT ** i for i in reversed(range(self.poly_order))], dim=1)
+        self.trans_T = torch.cat([self.logT ** i for i in reversed(range(self.poly_order))], dim=1)
 
         self.species_viscosities = torch.mm(self.trans_T, self.species_viscosities_poly)
 
@@ -156,14 +155,16 @@ class Solution(nn.Module):
 
         self.Wj_over_Wk = 1 / self.Wk_over_Wj
 
-        self.etak_over_etaj = torch.bmm(self.species_viscosities.unsqueeze(-1),
-                                        1 / self.species_viscosities.unsqueeze(-1).view(-1, 1, self.n_species))
+        self.etak_over_etaj = torch.bmm(
+            self.species_viscosities.unsqueeze(-1),
+            1 / self.species_viscosities.unsqueeze(-1).view(-1, 1, self.n_species))
 
-        self.PHI = 1 / 2.8284271247461903 / torch.sqrt(1 + self.Wk_over_Wj) * \
-            (1 + self.etak_over_etaj ** 0.5 * self.Wj_over_Wk ** 0.25) ** 2
+        self.PHI = (1 / 2.8284271247461903 / torch.sqrt(1 + self.Wk_over_Wj) *
+                    (1 + self.etak_over_etaj ** 0.5 * self.Wj_over_Wk ** 0.25) ** 2)
 
         self.viscosities = (self.X.clone() * self.species_viscosities /
-                            torch.bmm(self.PHI, self.X.unsqueeze(-1)).squeeze(-1)).sum(dim=1, keepdim=True)
+                            torch.bmm(self.PHI, self.X.unsqueeze(-1)).squeeze(-1)).sum(dim=1,
+                                                                                       keepdim=True)
 
     def thermal_conductivity_func(self):
 
@@ -171,8 +172,7 @@ class Solution(nn.Module):
 
         self.thermal_conductivity = 0.5 * (
             (self.X.clone() * self.species_thermal_conductivity).sum(dim=1, keepdim=True) +
-            1 / (self.X.clone() /
-                 self.species_thermal_conductivity).sum(dim=1, keepdim=True)
+            1 / (self.X.clone() / self.species_thermal_conductivity).sum(dim=1, keepdim=True)
         )
 
     def binary_diff_coeffs_func(self):
@@ -182,14 +182,13 @@ class Solution(nn.Module):
 
         self.X_eps = self.X.clamp_(1e-12)
 
-        self.XjWj = torch.mm(self.X_eps, self.molecular_weights) - \
-            self.X_eps * self.molecular_weights.T
+        self.XjWj = (torch.mm(self.X_eps, self.molecular_weights) -
+                     self.X_eps * self.molecular_weights.T)
 
-        self.XjDjk = torch.bmm(self.X_eps.view(-1, 1, self.n_species), 1 / self.binary_diff_coeffs).squeeze(1) - \
-            self.X_eps / self.binary_diff_coeffs.diagonal(dim1=-2, dim2=-1)
+        self.XjDjk = torch.bmm(self.X_eps.view(-1, 1, self.n_species), 1 / self.binary_diff_coeffs).squeeze(
+            1) - self.X_eps / self.binary_diff_coeffs.diagonal(dim1=-2, dim2=-1)
 
-        self.mix_diff_coeffs = self.XjWj / self.XjDjk / \
-            self.mean_molecular_weight / self.P * self.P_atm
+        self.mix_diff_coeffs = self.XjWj / self.XjDjk / self.mean_molecular_weight / self.P * self.P_atm
 
     # Magic Functions
 
@@ -210,12 +209,10 @@ class Solution(nn.Module):
 
     def cp_mole_func(self):
 
-        self.cp_T = torch.cat(
-            [self.T ** 0, self.T, self.T ** 2, self.T ** 3, self.T ** 4], dim=1)
+        self.cp_T = torch.cat([self.T ** 0, self.T, self.T ** 2, self.T ** 3, self.T ** 4], dim=1)
 
-        self.cp = torch.mm(self.cp_T, self.nasa_low[:, :5].T) * (self.T <= 1000).int() + \
-            torch.mm(
-                self.cp_T, self.nasa_high[:, :5].T) * (self.T > 1000).int()
+        self.cp = (torch.mm(self.cp_T, self.nasa_low[:, :5].T) * (self.T <= 1000).int() +
+                   torch.mm(self.cp_T, self.nasa_high[:, :5].T) * (self.T > 1000).int())
 
         self.cp_mole = (self.R * self.cp * self.X.clone()).sum(dim=1)
 
@@ -228,8 +225,8 @@ class Solution(nn.Module):
         self.H_T = torch.cat((self.T ** 0, self.T / 2, self.T ** 2 / 3,
                               self.T ** 3 / 4, self.T ** 4 / 5, 1 / self.T), dim=1)
 
-        self.H = torch.mm(self.H_T, self.nasa_low[:, :6].T) * (self.T <= 1000).int() + \
-            torch.mm(self.H_T, self.nasa_high[:, :6].T) * (self.T > 1000).int()
+        self.H = (torch.mm(self.H_T, self.nasa_low[:, :6].T) * (self.T <= 1000).int() +
+                  torch.mm(self.H_T, self.nasa_high[:, :6].T) * (self.T > 1000).int())
 
         self.H = self.H * self.R * self.T
 
@@ -248,14 +245,13 @@ class Solution(nn.Module):
         self.S_T = torch.cat((torch.log(self.T), self.T, self.T ** 2 / 2,
                               self.T ** 3 / 3, self.T ** 4 / 4, self.T ** 0), dim=1)
 
-        self.S0 = torch.mm(self.S_T, self.nasa_low[:, [0, 1, 2, 3, 4, 6]].T) * (self.T <= 1000).int() + \
-            torch.mm(self.S_T, self.nasa_high[:, [
-                     0, 1, 2, 3, 4, 6]].T) * (self.T > 1000).int()
+        self.S0 = (
+            torch.mm(self.S_T, self.nasa_low[:, [0, 1, 2, 3, 4, 6]].T) * (self.T <= 1000).int() +
+            torch.mm(self.S_T, self.nasa_high[:, [0, 1, 2, 3, 4, 6]].T) * (self.T > 1000).int())
 
         self.S0 = self.S0 * self.R
 
-        self.S = self.S0 - self.R * \
-            torch.log(self.X) - self.R * torch.log(self.P / ct.one_atm)
+        self.S = self.S0 - self.R * torch.log(self.X) - self.R * torch.log(self.P / ct.one_atm)
 
         self.partial_molar_entropies = self.S
 
@@ -277,8 +273,8 @@ class Solution(nn.Module):
 
     def Tdot_func(self):
 
-        self.Tdot = -((self.partial_molar_enthalpies *
-                       self.wdot).sum(dim=1) / self.density_mass.T / self.cp_mass).T
+        self.Tdot = -((self.partial_molar_enthalpies * self.wdot).sum(dim=1) /
+                      self.density_mass.T / self.cp_mass).T
 
     def TXdot_func(self):
 
