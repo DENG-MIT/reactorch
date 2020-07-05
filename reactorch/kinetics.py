@@ -227,3 +227,41 @@ def wdot_func(self):
     self.wdot = torch.mm(self.qdot, self.net_stoich_coeffs.T)
 
     self.net_production_rates = self.wdot
+
+
+def Ydot_func(self):
+
+    self.Ydot = self.wdot / self.density_mass * self.molecular_weights.T
+
+
+def Xdot_func(self):
+
+    self.Xdot = self.Ydot * self.mean_molecular_weight / self.molecular_weights.T
+
+
+def Tdot_func(self):
+
+    self.Tdot = -((self.partial_molar_enthalpies * self.wdot).sum(dim=1) /
+                  self.density_mass.T / self.cp_mass).T
+
+
+def TXdot_func(self):
+
+    self.Tdot_func()
+
+    self.Xdot_func()
+
+    self.TXdot = torch.cat((self.Tdot, self.Xdot), dim=1)
+
+    return self.TXdot
+
+
+def TYdot_func(self):
+
+    self.Tdot_func()
+
+    self.Ydot_func()
+
+    self.TYdot = torch.cat((self.Tdot, self.Ydot), dim=1)
+
+    return self.TYdot

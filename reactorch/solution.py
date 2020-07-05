@@ -26,6 +26,11 @@ class Solution(nn.Module):
     from .kinetics import equilibrium_constants_func
     from .kinetics import reverse_rate_constants_func
     from .kinetics import wdot_func
+    from .kinetics import Ydot_func
+    from .kinetics import Xdot_func
+    from .kinetics import Tdot_func
+    from .kinetics import TXdot_func
+    from .kinetics import TYdot_func
 
     from .thermo import cp_mole_func
     from .thermo import cp_mass_func
@@ -135,36 +140,3 @@ class Solution(nn.Module):
         self.reverse_rate_constants_func()
 
         self.wdot_func()
-
-    def Ydot_func(self):
-
-        self.Ydot = self.wdot / self.density_mass * self.molecular_weights.T
-
-    def Xdot_func(self):
-
-        self.Xdot = self.Ydot * self.mean_molecular_weight / self.molecular_weights.T
-
-    def Tdot_func(self):
-
-        self.Tdot = -((self.partial_molar_enthalpies * self.wdot).sum(dim=1) /
-                      self.density_mass.T / self.cp_mass).T
-
-    def TXdot_func(self):
-
-        self.Tdot_func()
-
-        self.Xdot_func()
-
-        self.TXdot = torch.cat((self.Tdot, self.Xdot), dim=1)
-
-        return self.TXdot
-
-    def TYdot_func(self):
-
-        self.Tdot_func()
-
-        self.Ydot_func()
-
-        self.TYdot = torch.cat((self.Tdot, self.Ydot), dim=1)
-
-        return self.TYdot
