@@ -18,13 +18,16 @@ torch.set_default_tensor_type("torch.DoubleTensor")
 
 
 class Solution(nn.Module):
-    def __init__(self, mech_yaml=None, device=None):
+    def __init__(self, mech_yaml=None, device=None,vectorize=False):
         super(Solution, self).__init__()
 
         if device is None:
             self.device = torch.device('cpu')
         else:
             self.device = device
+            
+        # whether the computation of reaction rate of type4 will be vectorized
+        self.vectorize = vectorize
 
         self.gas = ct.Solution(mech_yaml)
 
@@ -53,167 +56,9 @@ class Solution(nn.Module):
             self.set_nasa()
 
             self.set_reactions()
-
-    def set_nasa(self):
-
-        self.nasa_low = torch.zeros([self.n_species, 7]).to(self.device)
-
-        self.nasa_high = torch.zeros([self.n_species, 7]).to(self.device)
-
-        for i in range(self.n_species):
-
-            self.nasa_low[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][0])
-
-            self.nasa_high[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][1])
-
-    def set_reactions(self):
-
-        self.reaction = [[None]] * self.n_reactions
-
-        self.reactant_stoich_coeffs = torch.Tensor(self.gas.reactant_stoich_coeffs()).to(self.device)
-
-        self.reactant_orders = torch.Tensor(self.gas.reactant_stoich_coeffs()).to(self.device)
-
-        self.product_stoich_coeffs = torch.Tensor(self.gas.product_stoich_coeffs()).to(self.device)
-
-        self.net_stoich_coeffs = self.product_stoich_coeffs - self.reactant_stoich_coeffs
-
-        self.efficiencies_coeffs = torch.ones([self.n_species, self.n_reactions]).to(self.device)
-
-        self.Arrhenius_coeffs = torch.zeros([self.n_reactions, 3]).to(self.device)
-
-        self.is_reversible = torch.ones([self.n_reactions]).to(self.device)
-
-        self.list_reaction_type1 = []
-        self.list_reaction_type2 = []
-        self.list_reaction_type4 = []
-
-        for i in range(self.n_reactions):
-
-            # Type 1: regular reaction, 2: three-body, 4:fall-off
-
-            yaml_reaction = self.model_yaml['reactions'][i]
-
-            self.reaction[i] = {'equation': self.gas.reaction_equation(i)}
-            self.reaction[i]['reactants'] = self.gas.reactants(i)
-            self.reaction[i]['products'] = self.gas.products(i)
-            self.reaction[i]['reaction_type'] = self.gas.reaction_type(i)
-
-            if self.gas.reaction_type(i) in [1]:
-                self.list_reaction_type1.append(i)
-
-            if self.gas.reaction_type(i) in [2]:
-                self.list_reaction_type2.append(i)
-
-            if self.gas.reaction_type(i) in [4]:
-                self.list_reaction_type4.append(i)
-
-            if self.gas.is_reversible(i) is False:
-                self.is_reversible[i].fill_(0)
-
-            if self.gas.reaction_type(i) in [1, 2]:
-
-                self.reaction[i]['A'] = torch.Tensor([yaml_reaction['rate-constant']['A']]).to(self.device)
-
-                self.reaction[i]['b'] = torch.Tensor([yaml_reaction['rate-constant']['b']]).to(self.device)
-
-                if type(yaml_reaction['rate-constant']['Ea']) is str:
-                    Ea = list(map(eval, [yaml_reaction['rate-constant']['Ea'].split(' ')[0]]))
-                else:
-                    Ea = [yaml_reaction['rate-constant']['Ea']]
-
-                self.reaction[i]['Ea'] = torch.Tensor(Ea).to(self.device)
-
-            if self.gas.reaction_type(i) in [2, 4]:
-
-                self.efficiencies_coeffs[:, i] = 1
-                
-                if 'efficiencies' in yaml_reaction:
-                
-                    self.reaction[i]['efficiencies'] = yaml_reaction['efficiencies']
-                
-                    for key, value in self.reaction[i]['efficiencies'].items():
-                
-                        self.efficiencies_coeffs[self.gas.species_index(key), i] = value
-
-            if self.gas.reaction_type(i) in [4]:
-
-                high_p = yaml_reaction['high-P-rate-constant']
-
-                low_p = yaml_reaction['low-P-rate-constant']
-
-                self.reaction[i]['A'] = torch.Tensor([high_p['A']]).to(self.device)
-
-                self.reaction[i]['b'] = torch.Tensor([high_p['b']]).to(self.device)
-
-                if type(high_p['Ea']) is str:
-
-                    Ea = list(map(eval, [high_p['Ea'].split(' ')[0]]))
-
-                else:
-
-                    Ea = [high_p['Ea']]
-
-                self.reaction[i]['Ea'] = torch.Tensor(Ea).to(self.device)
-
-                self.reaction[i]['A_0'] = torch.Tensor([low_p['A']]).to(self.device)
-
-                self.reaction[i]['b_0'] = torch.Tensor([low_p['b']]).to(self.device)
-
-                if type(low_p['Ea']) is str:
-
-                    Ea = list(map(eval, [low_p['Ea'].split(' ')[0]]))
-
-                else:
-
-                    Ea = [low_p['Ea']]
-
-                self.reaction[i]['Ea_0'] = torch.Tensor(Ea).to(self.device)
-
-                if 'Troe' in yaml_reaction:
-
-                    Troe = yaml_reaction['Troe']
-
-                    if 'T2' in Troe:
-
-                        self.reaction[i]['Troe'] = {'A': torch.Tensor([Troe['A']]).to(self.device),
-                                                    'T1': torch.Tensor([Troe['T1']]).to(self.device),
-                                                    'T2': torch.Tensor([Troe['T2']]).to(self.device),
-                                                    'T3': torch.Tensor([Troe['T3']]).to(self.device)
-                                                    }
-
-                    else:
-
-                        self.reaction[i]['Troe'] = {'A': torch.Tensor([Troe['A']]).to(self.device),
-                                                    'T1': torch.Tensor([Troe['T1']]).to(self.device),
-                                                    'T3': torch.Tensor([Troe['T3']]).to(self.device)
-                                                    }
-
-            if 'orders' in yaml_reaction:
-
-                for key, value in yaml_reaction['orders'].items():
-
-                    self.reactant_orders[self.gas.species_index(key), i] = value
-
-            if 'units' in self.model_yaml:
-
-                if self.model_yaml['units']['length'] == 'cm' and self.model_yaml['units']['quantity'] == 'mol':
-                    self.reaction[i]['A'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
-
-                    if self.gas.reaction_type(i) in [2]:
-                        self.reaction[i]['A'] *= 1e-3
-
-                    if self.gas.reaction_type(i) in [4]:
-                        self.reaction[i]['A_0'] *= 1e-3
-                        self.reaction[i]['A_0'] *= (1e-3) ** (self.reactant_stoich_coeffs[:, i].sum().item() - 1)
-
-            self.Arrhenius_coeffs[i, 0] = self.reaction[i]['A']
-            self.Arrhenius_coeffs[i, 1] = self.reaction[i]['b']
-            self.Arrhenius_coeffs[i, 2] = self.reaction[i]['Ea']
-
-        self.Arrhenius_A = self.Arrhenius_coeffs[:, 0]
-        self.Arrhenius_b = self.Arrhenius_coeffs[:, 1]
-        self.Arrhenius_Ea = self.Arrhenius_coeffs[:, 2]
+    
+    from load_mechanism import set_nasa
+    from load_mechanism import set_reactions
 
     def set_pressure(self, P):
         self.P_ref = torch.Tensor([P]).to(self.device)
@@ -249,10 +94,22 @@ class Solution(nn.Module):
 
         self.entropy_mole_func()
         self.entropy_mass_func()
-
+         
+        # concentration of M in three-body reaction (type 2)
         self.C_M = torch.mm(self.C, self.efficiencies_coeffs)
-
-        self.forward_rate_constants_func()
+        
+        self.identity_mat = torch.ones_like(self.C_M)
+        # for batch computation
+        self.C_M2 = self.C_M * self.is_three_body + self.identity_mat \
+        * (1 - self.is_three_body)
+        
+        if self.vectorize==True:
+            # for type 4
+            self.C_M_type4 = torch.mm(self.C,self.efficiencies_coeffs_type4)
+            self.forward_rate_constants_func_vec()
+        else:
+            self.forward_rate_constants_func()
+            
         self.equilibrium_constants_func()
         self.reverse_rate_constants_func()
 
@@ -264,102 +121,14 @@ class Solution(nn.Module):
 
         self.thermal_conductivity_func()
 
-        self.binary_diff_coeffs_func()
+        self.binary_diff_coeffs_func()                    
 
-    def forward_rate_constants_func(self):
-        """Update forward_rate_constants
-        """
-
-        self.forward_rate_constants = torch.zeros(
-            [self.T.shape[0], self.n_reactions]).to(self.device)
-
-        ln10 = torch.log(torch.Tensor([10.0])).to(self.device)
-
-        for i in range(self.n_reactions):
-            reaction = self.reaction[i]
-
-            if reaction['reaction_type'] in [1, 2, 4]:
-                self.k = reaction['A'] * \
-                    torch.exp(reaction['b'] * torch.log(self.T) \
-                    - reaction['Ea'] * 4184.0 / self.R / self.T)
-        
-
-            if reaction['reaction_type'] in [2]:
-                self.k = self.k * self.C_M[:, i:i + 1]
-
-            if reaction['reaction_type'] in [4]:
-                self.kinf = reaction['A'] * \
-                    torch.exp(reaction['b'] * torch.log(self.T) \
-                    - reaction['Ea'] * 4184.0 / self.R / self.T)
-
-                self.k0 = self.reaction[i]['A_0'] * \
-                    torch.exp(reaction['b_0'] * torch.log(self.T) \
-                    - reaction['Ea_0'] * 4184.0 / self.R / self.T)
-
-                Pr = self.k0 * self.C_M[:, i: i + 1] / self.kinf
-                lPr = torch.log10(Pr)
-
-                self.k = self.k * (Pr / (1 + Pr))
-
-                if 'Troe' in self.reaction[i]:
-                    A = reaction['Troe']['A']
-                    T1 = reaction['Troe']['T1']
-                    T3 = reaction['Troe']['T3']
-
-                    F_cent = (1 - A) * torch.exp(-self.T / T3) + \
-                        A * torch.exp(-self.T / T1)
-
-                    if 'T2' in reaction['Troe']:
-                        T2 = reaction['Troe']['T2']
-                        F_cent = F_cent + torch.exp(-T2 / self.T)
-
-                    lF_cent = torch.log10(F_cent)
-                    C = -0.4 - 0.67 * lF_cent
-                    N = 0.75 - 1.27 * lF_cent
-                    f1 = (lPr + C) / (N - 0.14 * (lPr + C))
-                    F = torch.exp(ln10 * lF_cent / (1 + f1 * f1))
-
-                    self.k = self.k * F
-
-            self.forward_rate_constants[:, i: i + 1] = self.k
-
-        self.forward_rate_constants = self.forward_rate_constants * self.uq_A.abs()
-
-    def forward_rate_constants_func_matrix(self):
-
-        self.kf = self.Arrhenius_A * \
-            torch.exp(self.Arrhenius_b * torch.log(self.T) - self.Arrhenius_Ea  * 4184.0 / self.R / self.T)
-
-    def equilibrium_constants_func(self):
-
-        vk = (-self.reactant_stoich_coeffs + self.product_stoich_coeffs)
-        delta_S_over_R = torch.mm(self.S0, vk) / self.R
-        delta_H_over_RT = torch.mm(self.H, vk) / self.R / self.T
-
-        self.equilibrium_constants = \
-            torch.exp(delta_S_over_R - delta_H_over_RT + torch.log(self.P_atm / self.R / self.T) * vk.sum(dim=0))
-
-    def reverse_rate_constants_func(self):
-
-        self.reverse_rate_constants = self.forward_rate_constants / \
-            self.equilibrium_constants * self.is_reversible
-
-    def wdot_func(self):
-
-        eps = 1e-300
-
-        self.forward_rates_of_progress = self.forward_rate_constants * \
-            torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
-
-        self.reverse_rates_of_progress = self.reverse_rate_constants * \
-            torch.exp(torch.mm(torch.log(self.C + eps),
-                               self.product_stoich_coeffs))
-
-        self.qdot = self.forward_rates_of_progress - self.reverse_rates_of_progress
-
-        self.wdot = torch.mm(self.qdot, self.net_stoich_coeffs.T)
-
-        self.net_production_rates = self.wdot
+    from chemical_kinetic import forward_rate_constants_func
+    from chemical_kinetic import forward_rate_constants_func_vec
+    from chemical_kinetic import forward_rate_constants_func_matrix
+    from chemical_kinetic import equilibrium_constants_func
+    from chemical_kinetic import reverse_rate_constants_func
+    from chemical_kinetic import wdot_func
 
     def set_transport(self, species_viscosities_poly, thermal_conductivity_poly, binary_diff_coeffs_poly):
         # Transport Properties
