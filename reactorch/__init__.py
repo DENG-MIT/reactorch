@@ -1,3 +1,3 @@
-from .Solution import *
-from . import chemical_kinetic
-from . import load_mechanism
+from . import import_kinetics
+from . import kinetics
+from .solution import *

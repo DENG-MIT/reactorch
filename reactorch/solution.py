@@ -18,6 +18,17 @@ torch.set_default_tensor_type("torch.DoubleTensor")
 
 
 class Solution(nn.Module):
+    
+    from .import_kinetics import set_nasa
+    from .import_kinetics import set_reactions
+    
+    from .kinetics import forward_rate_constants_func
+    from .kinetics import forward_rate_constants_func_vec
+    from .kinetics import forward_rate_constants_func_matrix
+    from .kinetics import equilibrium_constants_func
+    from .kinetics import reverse_rate_constants_func
+    from .kinetics import wdot_func
+    
     def __init__(self, mech_yaml=None, device=None,vectorize=False):
         super(Solution, self).__init__()
 
@@ -56,9 +67,6 @@ class Solution(nn.Module):
             self.set_nasa()
 
             self.set_reactions()
-    
-    from load_mechanism import set_nasa
-    from load_mechanism import set_reactions
 
     def set_pressure(self, P):
         self.P_ref = torch.Tensor([P]).to(self.device)
@@ -122,13 +130,6 @@ class Solution(nn.Module):
         self.thermal_conductivity_func()
 
         self.binary_diff_coeffs_func()                    
-
-    from chemical_kinetic import forward_rate_constants_func
-    from chemical_kinetic import forward_rate_constants_func_vec
-    from chemical_kinetic import forward_rate_constants_func_matrix
-    from chemical_kinetic import equilibrium_constants_func
-    from chemical_kinetic import reverse_rate_constants_func
-    from chemical_kinetic import wdot_func
 
     def set_transport(self, species_viscosities_poly, thermal_conductivity_poly, binary_diff_coeffs_poly):
         # Transport Properties
