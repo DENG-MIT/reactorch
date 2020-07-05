@@ -47,6 +47,88 @@ def forward_rate_constants_func(self):
                    self.k = self.k * F
                       
             self.forward_rate_constants[:, i: i + 1] = self.k
+        
+        for i in self.list_reaction_type5:
+
+            reaction = self.reaction[i]
+
+            self.kk = [[None]] * self.n_rate_constants[i]
+
+            # calculate rate expressions at all given pressures
+            for j in range(self.n_rate_constants[i]):
+                self.kk[j] = reaction['p_dep']['A'][j] * \
+                             torch.exp(reaction['b'][j] * torch.log(self.T) \
+                                       - reaction['Ea'][j] * 4184.0 / self.R / self.T)
+
+            # jhigh1 corresponds to the first Arrhenius expression given at the minumum pressure
+            # higher than actual pressure. Considering multiple rate expressions may be given
+            # at the same pressure, we need jhigh2, which corresponds to the last Arrhenius
+            # expression given at the minumum pressure higher than actual pressure.
+            jhigh1 = self.n_rate_constants[i]
+            for j in range(self.n_rate_constants[i]):
+                if self.P[0] <= reaction['P'][j]:
+                    jhigh1 = j
+                    break
+
+            if jhigh1 != self.n_rate_constants[i]:
+                for j in range(self.n_rate_constants[i] - 1, -1, -1):
+                    if reaction['P'][j] == reaction['P'][jhigh1]:
+                        jhigh2 = j
+                        break
+
+            # jlow1 corresponds to the last Arrhenius expression given at the maximum pressure
+            # lower than actual pressure while jlow2 corresponds to the first.
+            jlow1 = -1
+            for j in range(self.n_rate_constants[i] - 1, -1, -1):
+                if self.P[0] >= reaction['P'][j]:
+                    jlow1 = j
+                    break
+
+            if jlow1 != -1:
+                for j in range(self.n_rate_constants[i]):
+                    if reaction['P'][j] == reaction['P'][jlow1]:
+                        jlow2 = j
+                        break
+
+            # This is the case where the actual pressure is higher than all given pressures.
+            if jhigh1 == self.n_rate_constants[i]:
+                for j in range(self.n_rate_constants[i]):
+                    if reaction['P'][j] == reaction['P'][jhigh1 - 1]:
+                        jhigh2 = j
+                        break
+                self.k = self.kk[jhigh1 - 1]
+                if jhigh2 != jhigh1 - 1:
+                    for j in range(jhigh2, jhigh1 - 1):
+                        self.k = self.k + self.kk[j]
+
+            # This is the case where the actual pressure is lower than all given pressures.
+            if jlow1 == -1:
+                for j in range(self.n_rate_constants[i] - 1, -1, -1):
+                    if reaction['P'][j] == reaction['P'][0]:
+                        jlow2 = j
+                        break
+                self.k = self.kk[0]
+                if jlow2 != 0:
+                    for j in range(1, jlow2 + 1):
+                        self.k = self.k + self.kk[j]
+
+            # This is the case where the actual pressure is higher than the minimum
+            # given pressure and lower than the maximum given pressure.
+            if jhigh1 != self.n_rate_constants[i] and jlow1 != -1:
+                self.k1 = self.kk[jlow1]
+                self.k2 = self.kk[jhigh1]
+                if jhigh1 != jhigh2:
+                    for j in range(jhigh1 + 1, jhigh2 + 1):
+                        self.k2 = self.k2 + self.kk[j]
+                if jlow1 != jlow2:
+                    for j in range(jlow2, jlow1):
+                        self.k1 = self.k1 + self.kk[j]
+                logk = torch.log(self.k1) + (torch.log(self.k2) - torch.log(self.k1)) \
+                       * (torch.log(self.P[0]) - torch.log(reaction['P'][jlow1])) / \
+                       (torch.log(reaction['P'][jhigh1]) - torch.log(reaction['P'][jlow1]))
+                self.k = torch.exp(logk)
+
+            self.forward_rate_constants[:, i: i + 1] = self.k
 
         self.forward_rate_constants = self.forward_rate_constants * self.uq_A.abs()
 
