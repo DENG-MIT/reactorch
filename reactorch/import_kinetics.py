@@ -331,11 +331,11 @@ def set_reactions(self):
         self.Troe_T3 = torch.zeros([self.length_type4_Troe]).to(self.device)
 
         # for matrix size transfer
-        self.mat_transfer_type4 = torch.zeros([self.length_type4, self.n_reactions])
+        self.mat_transfer_type4 = torch.zeros([self.length_type4, self.n_reactions]).to(self.device)
 
-        self.mat_transfer_type4_Troe = torch.zeros([self.length_type4_Troe, self.n_reactions])
+        self.mat_transfer_type4_Troe = torch.zeros([self.length_type4_Troe, self.n_reactions]).to(self.device)
 
-        self.mat_transfer_type4_to_Troe = torch.zeros(self.length_type4, self.length_type4_Troe)
+        self.mat_transfer_type4_to_Troe = torch.zeros(self.length_type4, self.length_type4_Troe).to(self.device)
 
         for i in range(self.length_type4):
             index = self.list_reaction_type4[i]
