@@ -10,6 +10,7 @@ import cantera as ct
 import numpy as np
 import matplotlib.pyplot as plt
 import torch
+import os
 
 
 poly_order = 6
@@ -75,6 +76,9 @@ def fit_transport_data(mech_yaml, TPX):
     species_viscosities_list, species_viscosities_poly = species_viscosities(gas, T_list, p, comp)
     binary_diff_coeffs_list, binary_diff_coeffs_poly = binary_diff_coeffs(gas, T_list, p, comp)
     thermal_conductivity_list, thermal_conductivity_poly = thermal_conductivity(gas, T_list, p, comp)
+    
+    if not os.path.exists("mech/transfit"):
+        os.makedirs("mech/transfit")
 
     np.save('mech/transfit/species_viscosities_poly', species_viscosities_poly)
     np.save('mech/transfit/binary_diff_coeffs_poly', binary_diff_coeffs_poly)
