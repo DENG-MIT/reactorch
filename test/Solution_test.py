@@ -12,10 +12,11 @@ cuda = torch.device('cuda:0')
 
 device = cpu
 
-mech_yaml = '../data/gri30.yaml'
+mech_yaml = '../data/1S_CH4_MP1.yaml'
 composition = "CH4:0.5, O2:1.0, N2:3.76"
 
 sol = rt.Solution(mech_yaml=mech_yaml, device=device)
+#print(sol.species_names,sol.nasa_low[3,:],sol.nasa_high[3,:])
 
 gas = sol.gas
 gas.TPX = 950, 20 * ct.one_atm, composition

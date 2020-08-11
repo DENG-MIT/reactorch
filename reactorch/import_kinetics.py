@@ -1,15 +1,24 @@
 import torch
 
 
-def set_nasa(self):
-    self.nasa_low = torch.zeros([self.n_species, 7]).to(self.device)
+def set_nasa(self):    
 
+    self.species_names=self.gas.species_names
+    
+    self.nasa_low = torch.zeros([self.n_species, 7]).to(self.device)    
     self.nasa_high = torch.zeros([self.n_species, 7]).to(self.device)
-
+    
     for i in range(self.n_species):
-        self.nasa_low[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][0])
+        j=0
+        while True:
+            if self.species_names[i]==self.model_yaml['species'][j]['name']:
+                break
+            else:
+                j=j+1          
+        
+        self.nasa_low[i, :] = torch.Tensor(self.model_yaml['species'][j]['thermo']['data'][0])
 
-        self.nasa_high[i, :] = torch.Tensor(self.model_yaml['species'][i]['thermo']['data'][1])
+        self.nasa_high[i, :] = torch.Tensor(self.model_yaml['species'][j]['thermo']['data'][1])
 
 
 def set_transport(self,
