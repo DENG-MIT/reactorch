@@ -46,7 +46,9 @@ class Solution(nn.Module):
 
     from .magic_function import C2X, Y2X, Y2C, X2C, X2Y
 
-    def __init__(self, mech_yaml=None, device=None, vectorize=False):
+    def __init__(self, mech_yaml=None, device=None, vectorize=False, clip=True,
+                 norm=True, rop_iteration=False):
+        
         super(Solution, self).__init__()
 
         if device is None:
@@ -56,7 +58,10 @@ class Solution(nn.Module):
 
         # whether the computation of reaction rate of type4 will be vectorized
         self.vectorize = vectorize
-
+        self.clip=clip
+        self.norm=norm   
+        self.rop_iteration=rop_iteration
+            
         self.gas = ct.Solution(mech_yaml)
 
         self.R = ct.gas_constant
@@ -86,21 +91,31 @@ class Solution(nn.Module):
     def set_pressure(self, P):
         self.P_ref = torch.Tensor([P]).to(self.device)
 
-    def set_states(self, TPY):
+    def set_states(self, TPY,):
 
         self.T = torch.clamp(TPY[:, 0:1], min=200, max=None)
 
         self.logT = torch.log(self.T)
-
+       
+            
         if TPY.shape[1] == self.n_species + 2:
             self.P = TPY[:, 1:2]
-            self.Y = torch.clamp(TPY[:, 2:], min=0, max=None)
-
+            
+            if self.clip is True:
+                self.Y = torch.clamp(TPY[:, 2:], min=0, max=None)
+            else :
+                self.Y= TPY[:, 2:]
+                
         if TPY.shape[1] == self.n_species + 1:
-            self.P = torch.ones_like(self.T) * self.P_ref
-            self.Y = torch.clamp(TPY[:, 1:], min=0.0, max=None)
-
-        self.Y = (self.Y.T / self.Y.sum(dim=1)).T
+            self.P = torch.ones_like(self.T) * self.P_ref.to(self.device)
+            
+            if self.clip is True :
+                self.Y = torch.clamp(TPY[:, 1:], min=0.0, max=None)
+            else:
+                self.Y= TPY[:, 1:]
+        
+        if self.norm is True:
+            self.Y = (self.Y.T / self.Y.sum(dim=1)).T
 
         self.mean_molecular_weight = 1 / torch.mm(self.Y, 1 / self.molecular_weights)
 
@@ -140,3 +155,4 @@ class Solution(nn.Module):
         self.reverse_rate_constants_func()
 
         self.wdot_func()
+        self.TYdot_func()

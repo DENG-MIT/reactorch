@@ -214,13 +214,45 @@ def reverse_rate_constants_func(self):
 
 
 def wdot_func(self):
-    eps = 1e-300
-
-    self.forward_rates_of_progress = self.forward_rate_constants * \
-        torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
-
-    self.reverse_rates_of_progress = self.reverse_rate_constants * \
-        torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs))
+    
+    if self.rop_iteration is True or self.clip is False:
+        
+        nt = self.forward_rate_constants.size()[0]
+        zero_t = torch.zeros(nt).to(self.device)
+    
+        temp_forward = torch.ones(nt,self.n_reactions).to(self.device)
+        temp_reverse = torch.ones(nt,self.n_reactions).to(self.device)    
+        for i in range(self.n_reactions):
+            multiply_temp_forward = torch.ones(nt).to(self.device)
+            multiply_temp_reverse = torch.ones(nt).to(self.device)
+            for j in range(self.n_species):
+                multiply_temp_forward *= self.C[:,j]**self.reactant_stoich_coeffs[j,i]
+                multiply_temp_reverse *= self.C[:,j]**self.product_stoich_coeffs[j,i]
+            temp_forward[:,i] = multiply_temp_forward
+            temp_reverse[:,i] = multiply_temp_reverse
+    
+        list_forward= self.reactant_stoich_coeffs.nonzero()     
+        
+        list_reverse= self.product_stoich_coeffs.nonzero()          
+    
+        for j, i in list_forward:
+            temp_forward[:, i] = torch.where((self.C[:,j]<0) & (temp_forward[:,i]>0), zero_t, temp_forward[:,i])
+    
+        for j, i in list_reverse:
+            temp_reverse[:, i] = torch.where((self.C[:,j]<0) & (temp_reverse[:,i]>0), zero_t, temp_reverse[:,i])
+    
+        self.forward_rates_of_progress = self.forward_rate_constants * temp_forward
+        self.reverse_rates_of_progress = self.reverse_rate_constants * temp_reverse 
+    
+    else:         
+        
+        eps = 1e-300
+        self.forward_rates_of_progress = self.forward_rate_constants * \
+            torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
+    
+        self.reverse_rates_of_progress = self.reverse_rate_constants * \
+            torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs))
+        
 
     self.qdot = self.forward_rates_of_progress - self.reverse_rates_of_progress
 

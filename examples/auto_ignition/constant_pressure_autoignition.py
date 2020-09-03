@@ -19,6 +19,9 @@ from scipy.integrate import solve_ivp
 import torch
 from torch.autograd.functional import jacobian as jacobian
 
+###For GPU calculation
+# device=torch.device('cuda:0')]
+# torch.set_default_tensor_type('torch.DoubleTensor')
 
 class ReactorOde(object):
     def __init__(self, gas):
@@ -82,17 +85,18 @@ class ReactorOdeRT(object):
         return jac_
 
 
-mech_yaml = '../../data/gri30.yaml'
+mech_yaml = '../../data/IC8H18_reduced.yaml'
 
-sol = rt.Solution(mech_yaml=mech_yaml, device=None)
+sol = rt.Solution(mech_yaml=mech_yaml, device=None,clip=False,
+                 norm=False, rop_iteration=True)
 
 gas = ct.Solution(mech_yaml)
 
 
 # Initial condition
-P = ct.one_atm * 20
-T = 1301
-composition = 'CH4:0.5,O2:1,N2:4'
+P = ct.one_atm * 1
+T = 1801
+composition = 'IC8H18:0.5,O2:12.5,N2:34.0'
 gas.TPX = T, P, composition
 y0 = np.hstack((gas.T, gas.Y))
 
@@ -100,7 +104,7 @@ y0 = np.hstack((gas.T, gas.Y))
 ode = ReactorOde(gas)
 
 # Integrate the equations using Cantera
-t_end = 1e-3
+t_end = 1e-4
 states = ct.SolutionArray(gas, 1, extra={'t': [0.0]})
 dt = 1e-5
 t = 0
@@ -116,7 +120,7 @@ while ode_success and t < t_end:
     t = odesol.t[-1]
     y = odesol.y[:, -1]
     ode_successful = odesol.success
-
+    # print('t {:.2e} [s]'.format(t),'nfev',odesol.nfev,'njev',odesol.njev,'nlu',odesol.nlu)
     gas.TPY = odesol.y[0, -1], P, odesol.y[1:, -1]
     states.append(gas.state, t=t)
 
@@ -147,8 +151,8 @@ while ode_success and t < t_end:
     t = odesol.t[-1]
     y = odesol.y[:, -1]
     ode_successful = odesol.success
-
-    print('t {} T {}'.format(t, y[0]))
+    # print('t {:.2e} [s]'.format(t),'nfev',odesol.nfev,'njev',odesol.njev,'nlu',odesol.nlu)
+    print('t {:.2e} T {:.2e}'.format(t, y[0]))
 
     sol.gas.TPY = odesol.y[0, -1], P, odesol.y[1:, -1]
     states_rt.append(sol.gas.state, t=t)

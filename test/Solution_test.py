@@ -3,7 +3,7 @@ from time import perf_counter
 
 import cantera as ct
 import torch
-
+import numpy as np
 import reactorch as rt
 
 cpu = torch.device('cpu')
@@ -12,13 +12,14 @@ cuda = torch.device('cuda:0')
 
 device = cpu
 
-mech_yaml = '../data/gri30.yaml'
-composition = "CH4:0.5, O2:1.0, N2:3.76"
+mech_yaml = '../data/IC8H18_reduced.yaml'
+composition = 'IC8H18:0.8,O2:11.0,N2:39.0'
 
-sol = rt.Solution(mech_yaml=mech_yaml, device=device)
+sol = rt.Solution(mech_yaml=mech_yaml, device=device,clip=False,
+                 norm=False, rop_iteration=True)
 
 gas = sol.gas
-gas.TPX = 950, 20 * ct.one_atm, composition
+gas.TPX = 1800, 5 * ct.one_atm, composition
 
 r = ct.IdealGasReactor(gas)
 sim = ct.ReactorNet([r])
@@ -66,10 +67,27 @@ reaction_equation = gas.reaction_equations()
 kf = states.forward_rate_constants
 kc = states.equilibrium_constants
 kr = states.reverse_rate_constants
+frates_ct=states.forward_rates_of_progress
+rrates_ct=states.reverse_rates_of_progress
+Y_ct=states.Y
 
 kf_rt = sol.forward_rate_constants.detach().cpu().numpy()
 kc_rt = sol.equilibrium_constants.detach().cpu().numpy()
 kr_rt = sol.reverse_rate_constants.detach().cpu().numpy()
+frates_rt=sol.forward_rates_of_progress.detach().cpu().numpy()
+rrates_rt=sol.reverse_rates_of_progress.detach().cpu().numpy()
+Y_rt=sol.Y.detach().cpu().numpy()
+
+
+
+if np.isfinite(frates_rt).all()==False:
+    print('reactorch forward rates of progress is not finite')
+if np.isfinite(rrates_rt).all()==False:
+    print('reactorch reverse rates of progress is not finite')
+if np.isnan(np.where(Y_rt<0)).all() == False:
+    print('negative mass fractions happen in cantera')
+if np.isnan(np.where(Y_rt<0)).all() == False:
+    print('negative mass fractions happen in reactorch')
 
 
 def check_rates(i):
@@ -94,6 +112,19 @@ def check_rates(i):
     if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
         print("reverse constants {} {} {:.4e} {:.4e}".format(
             i, reaction_equation[i], ratio.min(), ratio.max()))
+        
+    ratio = (frates_ct[:, i] + eps) / (frates_rt[:, i] + eps)  
+
+    if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
+          print("forward rates of progress {}{} {:.4e} {:.4e}".format(
+            i, reaction_equation[i],ratio.min(), ratio.max()))   
+            
+    ratio = (rrates_ct[:, i] + eps) / (rrates_rt[:, i] + eps)  
+
+    if ratio.min() < 1 - delta or ratio.max() > 1 + delta:
+          
+        print("reverse rates of progress{} {} {:.4e} {:.4e}".format(
+            i, reaction_equation[i],ratio.min(), ratio.max())) 
 
     return i
 
