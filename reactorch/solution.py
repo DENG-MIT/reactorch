@@ -155,4 +155,4 @@ class Solution(nn.Module):
         self.reverse_rate_constants_func()
 
         self.wdot_func()
-        self.TYdot_func()
+        #self.TYdot_func()
