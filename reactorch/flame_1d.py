@@ -75,7 +75,7 @@ class Flame_1d:
 
     def update_dYdx(self):
         # following https://cantera.org/science/flames.html
-        self.dYdx = - (self.grad_to_x(self.diffusive_fluxes) + self.sol.molecular_weights.T * self.sol.wdot) / self.m_dot
+        self.dYdx = (-self.grad_to_x(self.diffusive_fluxes) + self.sol.molecular_weights.T * self.sol.wdot) / self.m_dot
 
     def update_dTdx(self):
         # following https://cantera.org/science/flames.html
