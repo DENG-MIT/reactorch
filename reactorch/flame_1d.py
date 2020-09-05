@@ -67,7 +67,7 @@ class Flame_1d:
     def update_diffusive_fluxes(self):
         # following https://cantera.org/science/flames.html
         self.sol.update_transport()
-        self.diffusive_fluxes_star = self.sol.density_mass * \
+        self.diffusive_fluxes_star = - self.sol.density_mass * \
             (self.sol.molecular_weights.T / self.sol.mean_molecular_weight) \
             * self.sol.mix_diff_coeffs * self.grad_to_x(self.sol.X)
         self.diffusive_fluxes = self.diffusive_fluxes_star - \
@@ -82,9 +82,9 @@ class Flame_1d:
         self.dT2dx = self.grad_to_x(self.sol.T)
 
         self.dTdx0 = self.grad_to_x(self.dT2dx * self.sol.thermal_conductivity)
-        self.dTdx1 = self.dTdx0 - self.dT2dx * (self.diffusive_fluxes * self.sol.cp).sum(dim=1, keepdim=True)
+        self.dTdx1 = self.dTdx0 - self.dT2dx * (self.diffusive_fluxes * self.sol.cp / self.sol.molecular_weights.T).sum(dim=1, keepdim=True)
         self.dTdx2 = self.dTdx1 - (self.sol.h * self.sol.molecular_weights.T * self.sol.wdot).sum(dim=1, keepdim=True)
-        self.dTdx = self.dTdx2/self.m_dot / self.sol.cp_mole.unsqueeze(-1)
+        self.dTdx = self.dTdx2/self.m_dot / self.sol.cp_mass.T
 
     def update_rhs(self):
         self.rhs = torch.cat((self.dTdx, self.dYdx), dim=1)
