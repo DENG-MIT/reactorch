@@ -86,7 +86,7 @@ class Solution(nn.Module):
     def set_pressure(self, P):
         self.P_ref = torch.Tensor([P]).to(self.device)
 
-    def set_states(self, TPY, eval_rate = True):
+    def set_states(self, TPY, eval_rate=True):
 
         self.T = torch.clamp(TPY[:, 0:1], min=200, max=None)
 
@@ -127,10 +127,10 @@ class Solution(nn.Module):
 
             # for batch computation
             self.C_M2 = (self.C_M * self.is_three_body +
-                        self.identity_mat * (1 - self.is_three_body))
+                         self.identity_mat * (1 - self.is_three_body))
 
             if self.vectorize is True:
-                # for type 4
+                # for reaction of type 4
                 self.C_M_type4 = torch.mm(self.C, self.efficiencies_coeffs_type4)
                 self.forward_rate_constants_func_vec()
 

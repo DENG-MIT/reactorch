@@ -1,24 +1,18 @@
 import torch
 
 
-def set_nasa(self):    
+def set_nasa(self):
 
-    self.species_names=self.gas.species_names
-    
-    self.nasa_low = torch.zeros([self.n_species, 7]).to(self.device)    
+    self.nasa_low = torch.zeros([self.n_species, 7]).to(self.device)
     self.nasa_high = torch.zeros([self.n_species, 7]).to(self.device)
-    
-    for i in range(self.n_species):
-        j=0
-        while True:
-            if self.species_names[i]==self.model_yaml['species'][j]['name']:
-                break
-            else:
-                j=j+1          
-        
-        self.nasa_low[i, :] = torch.Tensor(self.model_yaml['species'][j]['thermo']['data'][0])
+    yaml_species = self.model_yaml['species']
+    yaml_species_names = [s['name'] for s in yaml_species]
 
-        self.nasa_high[i, :] = torch.Tensor(self.model_yaml['species'][j]['thermo']['data'][1])
+    for i, species in enumerate(self.gas.species_names):
+
+        index = yaml_species_names.index(species)
+        self.nasa_low[i, :] = torch.Tensor(yaml_species[index]['thermo']['data'][0])
+        self.nasa_high[i, :] = torch.Tensor(yaml_species[index]['thermo']['data'][1])
 
 
 def set_transport(self,
@@ -342,9 +336,13 @@ def set_reactions(self):
         # for matrix size transfer
         self.mat_transfer_type4 = torch.zeros([self.length_type4, self.n_reactions]).to(self.device)
 
-        self.mat_transfer_type4_Troe = torch.zeros([self.length_type4_Troe, self.n_reactions]).to(self.device)
+        self.mat_transfer_type4_Troe = torch.zeros(
+            [self.length_type4_Troe, self.n_reactions]).to(
+            self.device)
 
-        self.mat_transfer_type4_to_Troe = torch.zeros(self.length_type4, self.length_type4_Troe).to(self.device)
+        self.mat_transfer_type4_to_Troe = torch.zeros(
+            self.length_type4, self.length_type4_Troe).to(
+            self.device)
 
         for i in range(self.length_type4):
             index = self.list_reaction_type4[i]
