@@ -54,7 +54,7 @@ class Solution(nn.Module):
         else:
             self.device = device
 
-        # whether the computation of reaction rate of type4 will be vectorized
+        # whether the computation of reaction rate of type 4 will be vectorized
         self.vectorize = vectorize
 
         self.gas = ct.Solution(mech_yaml)
@@ -86,7 +86,7 @@ class Solution(nn.Module):
     def set_pressure(self, P):
         self.P_ref = torch.Tensor([P]).to(self.device)
 
-    def set_states(self, TPY):
+    def set_states(self, TPY, eval_rate = True):
 
         self.T = torch.clamp(TPY[:, 0:1], min=200, max=None)
 
@@ -118,25 +118,27 @@ class Solution(nn.Module):
         self.entropy_mole_func()
         self.entropy_mass_func()
 
-        # concentration of M in three-body reaction (type 2)
-        self.C_M = torch.mm(self.C, self.efficiencies_coeffs)
+        if eval_rate is True:
 
-        self.identity_mat = torch.ones_like(self.C_M)
+            # concentration of M in three-body reaction (type 2)
+            self.C_M = torch.mm(self.C, self.efficiencies_coeffs)
 
-        # for batch computation
-        self.C_M2 = (self.C_M * self.is_three_body +
-                     self.identity_mat * (1 - self.is_three_body))
+            self.identity_mat = torch.ones_like(self.C_M)
 
-        if self.vectorize is True:
-            # for type 4
-            self.C_M_type4 = torch.mm(self.C, self.efficiencies_coeffs_type4)
-            self.forward_rate_constants_func_vec()
+            # for batch computation
+            self.C_M2 = (self.C_M * self.is_three_body +
+                        self.identity_mat * (1 - self.is_three_body))
 
-        else:
+            if self.vectorize is True:
+                # for type 4
+                self.C_M_type4 = torch.mm(self.C, self.efficiencies_coeffs_type4)
+                self.forward_rate_constants_func_vec()
 
-            self.forward_rate_constants_func()
+            else:
 
-        self.equilibrium_constants_func()
-        self.reverse_rate_constants_func()
+                self.forward_rate_constants_func()
 
-        self.wdot_func()
+            self.equilibrium_constants_func()
+            self.reverse_rate_constants_func()
+
+            self.wdot_func()
