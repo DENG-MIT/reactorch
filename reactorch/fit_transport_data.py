@@ -8,8 +8,6 @@ Created on Wed Apr 15 21:04:05 2020
 
 import cantera as ct
 import numpy as np
-import matplotlib.pyplot as plt
-import torch
 import os
 
 
@@ -30,7 +28,8 @@ def species_viscosities(gas, T_list, p, comp):
 
 
 def binary_diff_coeffs(gas, T_list, p, comp):
-    binary_diff_coeffs_list = np.zeros((T_list.shape[0], gas.n_species*gas.n_species))
+
+    binary_diff_coeffs_list = np.zeros((T_list.shape[0], gas.n_species * gas.n_species))
 
     for i, T in enumerate(T_list):
         gas.TPX = T, p, comp
@@ -41,6 +40,7 @@ def binary_diff_coeffs(gas, T_list, p, comp):
 
 
 def thermal_conductivity(gas, T_list, p, comp):
+
     thermal_conductivity_list = np.zeros((T_list.shape[0], gas.n_species))
 
     arr_thermal_cond = np.zeros(gas.n_species)
@@ -58,25 +58,22 @@ def thermal_conductivity(gas, T_list, p, comp):
     poly = np.polyfit(np.log(T_list), thermal_conductivity_list, deg=poly_order)
     return thermal_conductivity_list, poly
 
-def fit_transport_data(mech_yaml, TPX):
+
+def fit_transport_data(mech_yaml, TPX, T_min=300, T_max=3000, n_points=2700):
 
     gas = ct.Solution(mech_yaml)
-    
-    T = TPX[0]
+
     p = TPX[1]
     comp = TPX[2]
 
-    n_points = 2700
-    T_min = 300
-    T_max = 3500
     T_list = np.linspace(start=T_min, stop=T_max, num=n_points, endpoint=True)
 
-    gas.TPX = 1000, p, comp
+    gas.TPX = gas.T, p, comp
 
     species_viscosities_list, species_viscosities_poly = species_viscosities(gas, T_list, p, comp)
     binary_diff_coeffs_list, binary_diff_coeffs_poly = binary_diff_coeffs(gas, T_list, p, comp)
-    thermal_conductivity_list, thermal_conductivity_poly = thermal_conductivity(gas, T_list, p, comp)
-    
+    thermal_conductivity_list, thermal_conductivity_poly = thermal_conductivity(gas, T_list, p, comp)  # noqa E501
+
     if not os.path.exists("mech/transfit"):
         os.makedirs("mech/transfit")
 
@@ -87,18 +84,18 @@ def fit_transport_data(mech_yaml, TPX):
     max_error_relative_list = np.zeros(gas.n_species)
     for i in range(gas.n_species):
         poly = np.poly1d(species_viscosities_poly[:, i])
-        max_error_relative_list[i] = np.abs(poly(np.log(T_list)) / species_viscosities_list[:, i] - 1).max()
-
+        max_error_relative_list[i] = np.abs(poly(np.log(T_list)) / species_viscosities_list[:, i] - 1).max()  # noqa E501
 
     np.set_printoptions(precision=3)
+    print("max_error_relative_list species_viscosities_list @fit_transport_data")
     print(gas.species_names)
     print(max_error_relative_list * 100)
-
 
     max_error_relative_list = np.zeros(gas.n_species)
     for i in range(gas.n_species):
         poly = np.poly1d(thermal_conductivity_poly[:, i])
-        max_error_relative_list[i] = np.abs(poly(np.log(T_list)) / (thermal_conductivity_list[:, i] + 1e-12) - 1).max()
+        max_error_relative_list[i] = np.abs(poly(np.log(T_list)) / (thermal_conductivity_list[:, i] + 1e-12) - 1).max()  # noqa E501
 
+    print("max_error_relative_list thermal_conductivity_list @fit_transport_data")
     print(gas.species_names)
     print(max_error_relative_list * 100)
