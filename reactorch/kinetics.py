@@ -51,6 +51,7 @@ def forward_rate_constants_func(self):
         self.forward_rate_constants[:, i: i + 1] = self.k
 
     for i in self.list_reaction_type5:
+        # TODO: This function is going to be optimized
 
         reaction = self.reaction[i]
 
@@ -204,8 +205,7 @@ def equilibrium_constants_func(self):
     delta_S_over_R = torch.mm(self.S0, vk) / self.R
     delta_H_over_RT = torch.mm(self.H, vk) / self.R / self.T
 
-    self.equilibrium_constants = (torch.exp(
-        delta_S_over_R - delta_H_over_RT + torch.log(self.one_atm / self.R / self.T) * vk.sum(dim=0)))
+    self.equilibrium_constants = (torch.exp(delta_S_over_R - delta_H_over_RT + torch.log(self.one_atm / self.R / self.T) * vk.sum(dim=0)))   # noqa E501
 
 
 def reverse_rate_constants_func(self):
@@ -227,23 +227,33 @@ def wdot_func(self):
         self.wdot = torch.mm(self.qdot, self.net_stoich_coeffs.T)
 
     else:
-        # TODO: debug this part of the code
+
         C = self.C
         self.qdot = torch.zeros((C.shape[0], self.n_reactions)).to(self.device)
+
         reactant_orders = self.reactant_orders
         product_orders = self.product_stoich_coeffs
+
         kf = self.forward_rate_constants
         kr = self.reverse_rate_constants
+
         for i_r in range(self.n_reactions):
-            i_reactant = torch.nonzero(reactant_orders[:, i_r] > 0)
-            i_product = torch.nonzero(product_orders[:, i_r] > 0)
+
+            i_reactant = torch.nonzero(reactant_orders[:, i_r] > 0, as_tuple=False)
+            i_product = torch.nonzero(product_orders[:, i_r] > 0, as_tuple=False)
+
             rop_f = kf[:, i_r:i_r + 1] + 0
             rop_r = kr[:, i_r:i_r + 1] + 0
+
             for i in i_reactant:
                 rop_f *= torch.pow(C[:, i], reactant_orders[i, i_r])
+
             if self.is_reversible[i_r]:
                 for i in i_product:
                     rop_r *= torch.pow(C[:, i], product_orders[i, i_r])
+
+            # TODO: find an efficient way to correct negative concentrations but positive rates
+
             self.qdot[:, i_r:i_r + 1] = rop_f - rop_r
 
     self.wdot = torch.mm(self.qdot, self.net_stoich_coeffs.T)

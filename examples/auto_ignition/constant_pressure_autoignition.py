@@ -18,6 +18,7 @@ import reactorch as rt
 from scipy.integrate import solve_ivp
 import torch
 from torch.autograd.functional import jacobian as jacobian
+import matplotlib.pyplot as plt
 
 
 class ReactorOde(object):
@@ -81,18 +82,13 @@ class ReactorOdeRT(object):
 
         return jac_
 
-
 mech_yaml = '../../data/gri30.yaml'
-
-sol = rt.Solution(mech_yaml=mech_yaml, device=None)
-
 gas = ct.Solution(mech_yaml)
-
 
 # Initial condition
 P = ct.one_atm * 20
-T = 1301
-composition = 'CH4:0.5,O2:1,N2:4'
+T = 1300
+composition = 'ch4:0.5,O2:1,N2:4'
 gas.TPX = T, P, composition
 y0 = np.hstack((gas.T, gas.Y))
 
@@ -102,7 +98,7 @@ ode = ReactorOde(gas)
 # Integrate the equations using Cantera
 t_end = 1e-3
 states = ct.SolutionArray(gas, 1, extra={'t': [0.0]})
-dt = 1e-5
+dt = t_end / 50
 t = 0
 ode_success = True
 y = y0
@@ -120,23 +116,28 @@ while ode_success and t < t_end:
     gas.TPY = odesol.y[0, -1], P, odesol.y[1:, -1]
     states.append(gas.state, t=t)
 
+# inpsect if ignition happened
+plt.figure()
+plt.plot(states.t, states.T, ls='--', color='r', label='T Cantera', lw=1)
+plt.show()
+
+print('finish cantera integration')
+
+
+sol = rt.Solution(mech_yaml=mech_yaml, device=None, vectorize=True,
+                  is_clip=False, is_norm=False, is_wdot_vec=False)
 
 sol.gas.TPX = T, P, composition
 sol.set_pressure(sol.gas.P)
 ode_rt = ReactorOdeRT(sol=sol)
-
-print('finish cantera integration')
-
 
 # Integrate the equations using ReacTorch
 states_rt = ct.SolutionArray(sol.gas, 1, extra={'t': [0.0]})
 t = 0
 ode_success = True
 y = y0
-dt = 1e-5
 
 # Diable AD for jacobian seems more effient for this case.
-
 while ode_success and t < t_end:
     odesol = solve_ivp(ode_rt,
                        t_span=(t, t + dt),
@@ -147,34 +148,27 @@ while ode_success and t < t_end:
     t = odesol.t[-1]
     y = odesol.y[:, -1]
     ode_successful = odesol.success
-
-    print('t {} T {}'.format(t, y[0]))
-
     sol.gas.TPY = odesol.y[0, -1], P, odesol.y[1:, -1]
     states_rt.append(sol.gas.state, t=t)
 
+    print('t {:.2e} T {:.6f}'.format(t, y[0]))
+
 # Plot the results
-try:
-    import matplotlib.pyplot as plt
-    L1 = plt.plot(states.t, states.T, ls='--',
-                  color='r', label='T Cantera', lw=1)
-    L1_rt = plt.plot(states_rt.t, states_rt.T, ls='-',
-                     color='r', label='T ReacTorch', lw=1)
-    plt.xlabel('Time (s)')
-    plt.ylabel('Temperature (K)')
+fig = plt.figure(figsize=(9, 4))
+plt.subplot(121)
+L1 = plt.plot(states.t, states.T, ls='--', label='T Cantera', lw=1)
+L1_rt = plt.plot(states_rt.t, states_rt.T, ls='-', label='T ReacTorch', lw=1)
+plt.xlabel('Time (s)')
+plt.ylabel('Temperature (K)')
+plt.legend(loc='best')
 
-    plt.twinx()
-    L2 = plt.plot(states.t, states('OH').Y, ls='--', label='OH Cantera', lw=1)
-    L2_rt = plt.plot(states_rt.t, states_rt('OH').Y,
-                     ls='-',
-                     label='OH ReacTorch',
-                     lw=1)
-    plt.ylabel('Mass Fraction')
+plt.subplot(122)
+L2 = plt.plot(states.t, states('OH').Y, label='OH Cantera', lw=1)
+L2_rt = plt.plot(states_rt.t, states_rt('OH').Y, label='OH ReacTorch', lw=1)
+plt.ylabel('Mass Fraction')
+plt.xlabel('Time (s)')
+plt.legend(loc='best')
 
-    plt.legend(L1+L2+L1_rt+L2_rt, [line.get_label()
-                                   for line in L1+L2+L1_rt+L2_rt], loc='best')
-
-    plt.savefig('cantera_reactorch_validation.png', dpi=300)
-    plt.show()
-except ImportError:
-    print('Matplotlib not found. Unable to plot results.')
+fig.tight_layout()
+plt.savefig('cantera_reactorch_validation.png', dpi=120)
+plt.show()

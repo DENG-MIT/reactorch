@@ -17,7 +17,7 @@ composition = "CH4:0.5, O2:1.0, N2:3.76"
 
 sol = rt.Solution(mech_yaml=mech_yaml, device=device,
                   vectorize=True,
-                  is_clip=True, is_norm=True, is_wdot_vec=True)
+                  is_clip=False, is_norm=False, is_wdot_vec=False)
 
 gas = sol.gas
 gas.TPX = 950, 20 * ct.one_atm, composition
@@ -100,7 +100,7 @@ def check_rates(i):
     return i
 
 
-for i in range(gas.n_reactions):
+for i in range(sol.n_reactions):
     check_rates(i)
 
 # if __name__ == '__main__':
