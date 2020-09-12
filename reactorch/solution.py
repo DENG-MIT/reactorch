@@ -46,7 +46,8 @@ class Solution(nn.Module):
 
     from .magic_function import C2X, Y2X, Y2C, X2C, X2Y
 
-    def __init__(self, mech_yaml=None, device=None, vectorize=False):
+    def __init__(self, mech_yaml=None, device=None, vectorize=False,
+                 is_clip=True, is_norm=True, is_wdot_vec=True):
         super(Solution, self).__init__()
 
         if device is None:
@@ -56,6 +57,9 @@ class Solution(nn.Module):
 
         # whether the computation of reaction rate of type 4 will be vectorized
         self.vectorize = vectorize
+        self.is_clip = is_clip
+        self.is_norm = is_norm
+        self.is_wdot_vec = is_wdot_vec
 
         self.gas = ct.Solution(mech_yaml)
 
@@ -94,13 +98,20 @@ class Solution(nn.Module):
 
         if TPY.shape[1] == self.n_species + 2:
             self.P = TPY[:, 1:2]
-            self.Y = torch.clamp(TPY[:, 2:], min=0, max=None)
+            if self.is_clip:
+                self.Y = torch.clamp(TPY[:, 2:], min=0, max=None)
+            else:
+                self.Y = TPY[:, 2:]
 
         if TPY.shape[1] == self.n_species + 1:
             self.P = torch.ones_like(self.T) * self.P_ref
-            self.Y = torch.clamp(TPY[:, 1:], min=0.0, max=None)
+            if self.is_clip:
+                self.Y = torch.clamp(TPY[:, 1:], min=0.0, max=None)
+            else:
+                self.Y = TPY[:, 1:]
 
-        self.Y = (self.Y.T / self.Y.sum(dim=1)).T
+        if self.is_norm:
+            self.Y = (self.Y.T / self.Y.sum(dim=1)).T
 
         self.mean_molecular_weight = 1 / torch.mm(self.Y, 1 / self.molecular_weights)
 
@@ -118,7 +129,7 @@ class Solution(nn.Module):
         self.entropy_mole_func()
         self.entropy_mass_func()
 
-        if eval_rate is True:
+        if eval_rate:
 
             # concentration of M in three-body reaction (type 2)
             self.C_M = torch.mm(self.C, self.efficiencies_coeffs)
@@ -129,7 +140,7 @@ class Solution(nn.Module):
             self.C_M2 = (self.C_M * self.is_three_body +
                          self.identity_mat * (1 - self.is_three_body))
 
-            if self.vectorize is True:
+            if self.vectorize:
                 # for reaction of type 4
                 self.C_M_type4 = torch.mm(self.C, self.efficiencies_coeffs_type4)
                 self.forward_rate_constants_func_vec()

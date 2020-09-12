@@ -214,18 +214,38 @@ def reverse_rate_constants_func(self):
 
 
 def wdot_func(self):
+
     eps = 1e-300
+    if self.is_wdot_vec:
 
-    self.forward_rates_of_progress = self.forward_rate_constants * \
-        torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders))
+        self.forward_rates_of_progress = (self.forward_rate_constants * torch.exp(torch.mm(torch.log(self.C + eps), self.reactant_orders)))  # noqa E501
 
-    self.reverse_rates_of_progress = self.reverse_rate_constants * \
-        torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs))
+        self.reverse_rates_of_progress = (self.reverse_rate_constants * torch.exp(torch.mm(torch.log(self.C + eps), self.product_stoich_coeffs)))  # noqa E501
 
-    self.qdot = self.forward_rates_of_progress - self.reverse_rates_of_progress
+        self.qdot = self.forward_rates_of_progress - self.reverse_rates_of_progress
+
+        self.wdot = torch.mm(self.qdot, self.net_stoich_coeffs.T)
+
+    else:
+        # TODO: debug this part of the code
+        C = self.C
+        self.qdot = torch.zeros((C.shape[0], self.n_reactions)).to(self.device)
+        reactant_orders = self.reactant_orders
+        product_orders = self.product_stoich_coeffs
+        kf = self.forward_rate_constants
+        kr = self.reverse_rate_constants
+        for i_r in range(self.n_reactions):
+            i_reactant = torch.nonzero(reactant_orders[:, i_r] > 0)
+            i_product = torch.nonzero(product_orders[:, i_r] > 0)
+            rop_f = kf[:, i_r:i_r + 1]
+            rop_r = kr[:, i_r:i_r + 1]
+            for i in i_reactant:
+                rop_f *= torch.pow(C[:, i], reactant_orders[i, i_r])
+            for i in i_product:
+                rop_r *= torch.pow(C[:, i], product_orders[i, i_r])
+            self.qdot[:, i_r:i_r + 1] = rop_f - rop_r
 
     self.wdot = torch.mm(self.qdot, self.net_stoich_coeffs.T)
-
     self.net_production_rates = self.wdot
 
 

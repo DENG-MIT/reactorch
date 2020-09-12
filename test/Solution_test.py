@@ -15,7 +15,9 @@ device = cpu
 mech_yaml = '../data/gri30.yaml'
 composition = "CH4:0.5, O2:1.0, N2:3.76"
 
-sol = rt.Solution(mech_yaml=mech_yaml, device=device)
+sol = rt.Solution(mech_yaml=mech_yaml, device=device,
+                  vectorize=True,
+                  is_clip=True, is_norm=True, is_wdot_vec=True)
 
 gas = sol.gas
 gas.TPX = 950, 20 * ct.one_atm, composition
