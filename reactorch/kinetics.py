@@ -237,12 +237,13 @@ def wdot_func(self):
         for i_r in range(self.n_reactions):
             i_reactant = torch.nonzero(reactant_orders[:, i_r] > 0)
             i_product = torch.nonzero(product_orders[:, i_r] > 0)
-            rop_f = kf[:, i_r:i_r + 1]
-            rop_r = kr[:, i_r:i_r + 1]
+            rop_f = kf[:, i_r:i_r + 1] + 0
+            rop_r = kr[:, i_r:i_r + 1] + 0
             for i in i_reactant:
                 rop_f *= torch.pow(C[:, i], reactant_orders[i, i_r])
-            for i in i_product:
-                rop_r *= torch.pow(C[:, i], product_orders[i, i_r])
+            if self.is_reversible[i_r]:
+                for i in i_product:
+                    rop_r *= torch.pow(C[:, i], product_orders[i, i_r])
             self.qdot[:, i_r:i_r + 1] = rop_f - rop_r
 
     self.wdot = torch.mm(self.qdot, self.net_stoich_coeffs.T)
