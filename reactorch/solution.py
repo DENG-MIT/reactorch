@@ -10,7 +10,7 @@ __status__ = "Development"
 
 import cantera as ct
 import torch
-from ruamel.yaml import YAML
+from ruamel_yaml import YAML
 from torch import nn
 
 torch.set_default_tensor_type("torch.DoubleTensor")
